@@ -3,16 +3,14 @@ package com.coffeespace.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import com.coffeespace.entity.common.BaseEntity;
 
 @Getter
 @Setter
 @Entity
 @Table(name = "profile")
-public class Profile extends com.coffeespace.entity.BaseEntity {
+public class Profile extends BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
 
     private String firstname;
     private String lastname;

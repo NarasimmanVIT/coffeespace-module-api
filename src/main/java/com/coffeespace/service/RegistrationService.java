@@ -1,150 +1,75 @@
 package com.coffeespace.service;
 
-import com.coffeespace.dto.*;
-import com.coffeespace.entity.*;
-import com.coffeespace.repository.*;
+import com.coffeespace.converter.RegistrationConverter;
+import com.coffeespace.dto.RegisterRequest;
+import com.coffeespace.dto.RegisterResponse;
+import com.coffeespace.dto.LinkedInResponse;
+import com.coffeespace.entity.Profile;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
-import java.util.List;
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RegistrationService {
 
-    private final ProfileRepository profileRepo;
-    private final ProfileAdditionalInfoRepository additionalInfoRepo;
-    private final ProfileSkillSetRepository skillRepo;
-    private final ProfileInterestedIndustriesRepository industryRepo;
-    private final ProfileExperienceRepository experienceRepo;
-    private final ProfileEducationRepository educationRepo;
+    private final RegistrationConverter converter;
+    private final ProfileService profileService;
+    private final ProfileAdditionalInfoService additionalInfoService;
+    private final ProfileSkillSetService skillSetService;
+    private final ProfileInterestedIndustriesService industriesService;
+    private final ProfileExperienceService experienceService;
+    private final ProfileEducationService educationService;
 
     @Transactional
     public RegisterResponse register(RegisterRequest req) {
-        // === 1. Basic Validation ===
-        if (req.getEmail() == null || req.getEmail().isBlank()) {
-            throw new IllegalArgumentException("Email is required");
-        }
+        log.info("Starting registration for email: {}", req.getEmail());
 
-        profileRepo.findByEmail(req.getEmail()).ifPresent(p -> {
-            throw new IllegalArgumentException("Email already registered");
-        });
-
-        // === 2. Save Profile ===
-        Profile profile = new Profile();
-        profile.setFirstname(req.getFirstName());
-        profile.setLastname(req.getLastName());
-        profile.setEmail(req.getEmail());
-        profile = profileRepo.save(profile);
+        // Save Profile
+        Profile profile = profileService.createProfile(converter.toProfileEntity(req));
         Long pid = profile.getId();
 
-        // === 3. Save Additional Info ===
-        ProfileAdditionalInfo info = new ProfileAdditionalInfo();
-        info.setProfileid(pid);
-        info.setGoal(req.getGoal());
-        info.setExperience(req.getExperience());
-        info.setLinkedinProfileUrl(req.getLinkedInProfileUrl());
-        info.setLinkedinName(req.getLinkedInName());
-        info.setLinkedInSummary(req.getLinkedInSummary());
-        info.setLinkedInConnectionsCount(req.getLinkedInConnectionsCount());
-        if (req.getPriorities() != null && !req.getPriorities().isEmpty()) {
-            info.setPriorities(String.join(",", req.getPriorities()));
-        }
-        additionalInfoRepo.save(info);
+        // Save Additional Info
+        additionalInfoService.saveAdditionalInfo(converter.toAdditionalInfoEntity(pid, req));
 
-        // === 4. Save Skills ===
-        ProfileSkillSet skillSet = new ProfileSkillSet();
-        skillSet.setProfileid(pid);
-        fillSkillSlots(skillSet, req.getSkills());
-        skillRepo.save(skillSet);
+        // Save Skills
+        skillSetService.saveSkills(converter.toSkillSetEntity(pid, req.getSkills()));
 
-        // === 5. Save Industries ===
-        ProfileInterestedIndustries industries = new ProfileInterestedIndustries();
-        industries.setProfileid(pid);
-        fillInterestSlots(industries, req.getIndustries());
-        industryRepo.save(industries);
+        // Save Industries
+        industriesService.saveIndustries(converter.toIndustriesEntity(pid, req.getIndustries()));
 
-        // === 6. Save LinkedIn Experience ===
-        if (req.getLinkedInExperience() != null) {
-            for (LinkedInExperienceDTO e : req.getLinkedInExperience()) {
-                ProfileExperience pe = new ProfileExperience();
-                pe.setProfileid(pid);
-                pe.setRole(e.getTitle());
-                pe.setCompany(e.getCompany());
-                pe.setStartdate(e.getStartDate());
-                pe.setEnddate(e.getEndDate());
-                pe.setLocation(e.getLocation());
+        // Save Experience (bulk)
+        experienceService.saveAll(converter.toExperienceEntities(pid, req.getLinkedInExperience()));
 
-                experienceRepo.save(pe);
-            }
-        }
+        // Save Education (bulk)
+        educationService.saveAll(converter.toEducationEntities(pid, req.getLinkedInEducation()));
 
-        // === 7. Save LinkedIn Education ===
-        if (req.getLinkedInEducation() != null) {
-            for (LinkedInEducationDTO ed : req.getLinkedInEducation()) {
-                ProfileEducation pe = new ProfileEducation();
-                pe.setProfileid(pid);
-                pe.setInstitutename(ed.getInstitutionName());
-                pe.setDepartment(ed.getFieldOfStudy());
-                pe.setDegree(ed.getDegree());
-                pe.setStartdate(ed.getStartYear() != null ? ed.getStartYear().toString() : null);
-                pe.setEnddate(ed.getEndYear() != null ? ed.getEndYear().toString() : null);
-                educationRepo.save(pe);
-            }
-        }
-
-        // === 8. Build Response ===
+        // Build Response
         LinkedInResponse linkedInResponse = LinkedInResponse.builder()
-                .profileUrl(info.getLinkedinProfileUrl())
-                .name(info.getLinkedinName())
-                .summary(info.getLinkedInSummary())
-                .connectionsCount(info.getLinkedInConnectionsCount())
+                .profileUrl(req.getLinkedInProfileUrl())
+                .name(req.getLinkedInName())
+                .summary(req.getLinkedInSummary())
+                .connectionsCount(req.getLinkedInConnectionsCount())
                 .experience(req.getLinkedInExperience())
                 .education(req.getLinkedInEducation())
                 .skills(req.getLinkedInSkills())
                 .build();
+
+        log.info("Registration completed for email: {}", req.getEmail());
 
         return RegisterResponse.builder()
                 .userId(pid.toString())
                 .firstName(profile.getFirstname())
                 .lastName(profile.getLastname())
                 .email(profile.getEmail())
-                .goal(info.getGoal())
+                .goal(req.getGoal())
                 .priorities(req.getPriorities())
-                .experience(info.getExperience())
+                .experience(req.getExperience())
                 .skills(req.getSkills())
                 .industries(req.getIndustries())
                 .linkedIn(linkedInResponse)
                 .build();
-    }
-
-    private void fillSkillSlots(ProfileSkillSet s, List<String> skills) {
-        if (skills == null) return;
-        for (int i = 0; i < Math.min(5, skills.size()); i++) {
-            String v = StringUtils.trimWhitespace(skills.get(i));
-            switch (i) {
-                case 0 -> s.setSkill1(v);
-                case 1 -> s.setSkill2(v);
-                case 2 -> s.setSkill3(v);
-                case 3 -> s.setSkill4(v);
-                case 4 -> s.setSkill5(v);
-            }
-        }
-    }
-
-    private void fillInterestSlots(ProfileInterestedIndustries ind, List<String> interests) {
-        if (interests == null) return;
-        for (int i = 0; i < Math.min(5, interests.size()); i++) {
-            String v = StringUtils.trimWhitespace(interests.get(i));
-            switch (i) {
-                case 0 -> ind.setInterest1(v);
-                case 1 -> ind.setInterest2(v);
-                case 2 -> ind.setInterest3(v);
-                case 3 -> ind.setInterest4(v);
-                case 4 -> ind.setInterest5(v);
-            }
-        }
     }
 }

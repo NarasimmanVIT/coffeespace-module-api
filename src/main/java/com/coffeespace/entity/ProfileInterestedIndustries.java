@@ -1,5 +1,6 @@
 package com.coffeespace.entity;
 
+import com.coffeespace.entity.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -8,11 +9,8 @@ import lombok.Setter;
 @Setter
 @Entity
 @Table(name = "profile_interested_industries")
-public class ProfileInterestedIndustries extends com.coffeespace.entity.BaseEntity {
+public class ProfileInterestedIndustries extends BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
 
     private Long profileid;
     private String interest1;

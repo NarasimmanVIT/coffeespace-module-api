@@ -1,5 +1,6 @@
 package com.coffeespace.entity;
 
+import com.coffeespace.entity.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -8,11 +9,9 @@ import lombok.Setter;
 @Setter
 @Entity
 @Table(name = "profile_experience")
-public class ProfileExperience extends com.coffeespace.entity.BaseEntity {
+public class ProfileExperience extends BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+
 
     private Long profileid;
     private String role;

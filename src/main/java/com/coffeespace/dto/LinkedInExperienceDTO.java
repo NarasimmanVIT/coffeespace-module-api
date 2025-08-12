@@ -6,8 +6,8 @@ import lombok.Data;
 public class LinkedInExperienceDTO {
     private String title;
     private String company;
-    private String startDate; // "YYYY-MM-DD"
-    private String endDate;   // or null
+    private String startDate;
+    private String endDate;
     private String location;
-    private boolean isCurrent;
+    private Boolean isCurrent;
 }
