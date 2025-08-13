@@ -7,5 +7,5 @@ import lombok.Data;
 @Builder
 public class VerifyOtpData {
     private String token;
-    private Long profileId;
+    private String profileId;
 }

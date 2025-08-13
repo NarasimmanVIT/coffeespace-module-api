@@ -23,7 +23,10 @@ public class RegisterRequest {
     private String experience;
     private List<String> skills;
     private List<String> industries;
-    private LocalDate dob;
+    private String contactNumber;
+    private LocalDate dob;  // or String, but LocalDate is better
+    private String city;
+
 
     private String linkedInProfileUrl;
     private String linkedInName;

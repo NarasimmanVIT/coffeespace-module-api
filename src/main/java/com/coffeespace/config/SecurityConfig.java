@@ -20,7 +20,7 @@ public class SecurityConfig {
                 .cors(cors -> {})
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/**").permitAll()
-                        .requestMatchers("/metadata").permitAll()
+                        .requestMatchers("/metadata").authenticated()
                         .requestMatchers("/ping").permitAll()
                         .anyRequest().permitAll()
                 )

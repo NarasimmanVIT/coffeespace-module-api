@@ -19,7 +19,9 @@ public class RegisterResponse {
     private String firstName;
     private String lastName;
     private String email;
-    private LocalDate dob;
+    private String contactNumber;
+    private LocalDate dob;  // or String, but LocalDate is better
+    private String city;
     private String goal;
     private List<String> priorities;
     private String experience;

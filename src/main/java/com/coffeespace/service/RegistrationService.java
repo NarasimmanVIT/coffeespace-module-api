@@ -1,9 +1,8 @@
 package com.coffeespace.service;
 
-import com.coffeespace.assembler.RegistrationAssembler;
+import com.coffeespace.dto.LinkedInResponse;
 import com.coffeespace.dto.RegisterRequest;
 import com.coffeespace.dto.RegisterResponse;
-import com.coffeespace.dto.LinkedInResponse;
 import com.coffeespace.entity.Profile;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,7 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class RegistrationService {
 
-    private final RegistrationAssembler assembler;
     private final ProfileService profileService;
     private final ProfileAdditionalInfoService additionalInfoService;
     private final ProfileSkillSetService skillSetService;
@@ -27,27 +25,24 @@ public class RegistrationService {
     public RegisterResponse register(RegisterRequest req) {
         log.info("Starting registration for email: {}", req.getEmail());
 
-        // Save Profile
-        Profile profile = profileService.createProfile(assembler.toProfile(req));
+        Profile profile = profileService.saveProfile(req);
         Long pid = profile.getId();
 
-        // Save Additional Info
-        additionalInfoService.saveAdditionalInfo(assembler.toAdditionalInfo(pid, req));
+        additionalInfoService.save(pid, req);
+        skillSetService.saveSkills(pid, req.getSkills());
+        industriesService.saveIndustries(pid, req.getIndustries());
+        experienceService.saveAll(pid, req.getLinkedInExperience());
+        educationService.saveAll(pid, req.getLinkedInEducation());
 
-        // Save Skills
-        skillSetService.saveSkills(assembler.toSkillSet(pid, req.getSkills()));
+        LinkedInResponse linkedInResponse = LinkedInResponse(req);
 
-        // Save Industries
-        industriesService.saveIndustries(assembler.toIndustries(pid, req.getIndustries()));
+        log.info("Registration completed for email: {}", req.getEmail());
 
-        // Save Experience (bulk)
-        experienceService.saveAll(assembler.toExperiences(pid, req.getLinkedInExperience()));
+        return RegisterResponse(req, profile, pid, linkedInResponse);
+    }
 
-        // Save Education (bulk)
-        educationService.saveAll(assembler.toEducations(pid, req.getLinkedInEducation()));
-
-        // Build Response
-        LinkedInResponse linkedInResponse = LinkedInResponse.builder()
+    private LinkedInResponse LinkedInResponse(RegisterRequest req) {
+        return LinkedInResponse.builder()
                 .profileUrl(req.getLinkedInProfileUrl())
                 .name(req.getLinkedInName())
                 .summary(req.getLinkedInSummary())
@@ -56,14 +51,17 @@ public class RegistrationService {
                 .education(req.getLinkedInEducation())
                 .skills(req.getLinkedInSkills())
                 .build();
+    }
 
-        log.info("Registration completed for email: {}", req.getEmail());
-
+    private RegisterResponse RegisterResponse(RegisterRequest req, Profile profile, Long pid, LinkedInResponse linkedInResponse) {
         return RegisterResponse.builder()
                 .userId(pid.toString())
                 .firstName(profile.getFirstname())
                 .lastName(profile.getLastname())
                 .email(profile.getEmail())
+                .contactNumber(profile.getContactNumber())
+                .dob(profile.getDob())
+                .city(profile.getCity())
                 .goal(req.getGoal())
                 .priorities(req.getPriorities())
                 .experience(req.getExperience())
@@ -72,4 +70,5 @@ public class RegistrationService {
                 .linkedIn(linkedInResponse)
                 .build();
     }
+
 }

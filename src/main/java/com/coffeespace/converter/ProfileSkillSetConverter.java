@@ -4,24 +4,55 @@ import com.coffeespace.entity.ProfileSkillSet;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
 @Component
 public class ProfileSkillSetConverter {
 
-    public ProfileSkillSet toEntity(Long profileId, List<String> skills) {
+    // ===== Model → Entity =====
+    public ProfileSkillSet modelToEntity(Long profileId, List<String> skills) {
         log.debug("Converting skill list to ProfileSkillSet entity");
-        ProfileSkillSet s = new ProfileSkillSet();
-        s.setProfileid(profileId);
+        ProfileSkillSet entity = new ProfileSkillSet();
+        entity.setProfileid(profileId);
 
-        if (skills != null) {
-            if (skills.size() > 0) s.setSkill1(skills.get(0).trim());
-            if (skills.size() > 1) s.setSkill2(skills.get(1).trim());
-            if (skills.size() > 2) s.setSkill3(skills.get(2).trim());
-            if (skills.size() > 3) s.setSkill4(skills.get(3).trim());
-            if (skills.size() > 4) s.setSkill5(skills.get(4).trim());
+        // Normalize to exactly 5 skills
+        List<String> normalized = normalizeList(skills, 5);
+
+        entity.setSkill1(normalized.get(0));
+        entity.setSkill2(normalized.get(1));
+        entity.setSkill3(normalized.get(2));
+        entity.setSkill4(normalized.get(3));
+        entity.setSkill5(normalized.get(4));
+
+        return entity;
+    }
+
+    // ===== Entity → Model =====
+    public List<String> entityToModel(ProfileSkillSet entity) {
+        log.debug("Converting ProfileSkillSet entity to skill list");
+        List<String> skills = new ArrayList<>();
+        if (entity.getSkill1() != null) skills.add(entity.getSkill1());
+        if (entity.getSkill2() != null) skills.add(entity.getSkill2());
+        if (entity.getSkill3() != null) skills.add(entity.getSkill3());
+        if (entity.getSkill4() != null) skills.add(entity.getSkill4());
+        if (entity.getSkill5() != null) skills.add(entity.getSkill5());
+        return skills;
+    }
+
+    // Utility: Pad/truncate to N elements
+    private List<String> normalizeList(List<String> list, int size) {
+        List<String> result = new ArrayList<>();
+        if (list != null) {
+            for (String item : list) {
+                if (result.size() == size) break;
+                result.add(item != null ? item.trim() : null);
+            }
         }
-        return s;
+        while (result.size() < size) {
+            result.add(null);
+        }
+        return result;
     }
 }
