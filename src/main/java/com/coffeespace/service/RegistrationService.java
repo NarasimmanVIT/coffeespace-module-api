@@ -1,6 +1,6 @@
 package com.coffeespace.service;
 
-import com.coffeespace.converter.RegistrationConverter;
+import com.coffeespace.assembler.RegistrationAssembler;
 import com.coffeespace.dto.RegisterRequest;
 import com.coffeespace.dto.RegisterResponse;
 import com.coffeespace.dto.LinkedInResponse;
@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class RegistrationService {
 
-    private final RegistrationConverter converter;
+    private final RegistrationAssembler assembler;
     private final ProfileService profileService;
     private final ProfileAdditionalInfoService additionalInfoService;
     private final ProfileSkillSetService skillSetService;
@@ -28,23 +28,23 @@ public class RegistrationService {
         log.info("Starting registration for email: {}", req.getEmail());
 
         // Save Profile
-        Profile profile = profileService.createProfile(converter.toProfileEntity(req));
+        Profile profile = profileService.createProfile(assembler.toProfile(req));
         Long pid = profile.getId();
 
         // Save Additional Info
-        additionalInfoService.saveAdditionalInfo(converter.toAdditionalInfoEntity(pid, req));
+        additionalInfoService.saveAdditionalInfo(assembler.toAdditionalInfo(pid, req));
 
         // Save Skills
-        skillSetService.saveSkills(converter.toSkillSetEntity(pid, req.getSkills()));
+        skillSetService.saveSkills(assembler.toSkillSet(pid, req.getSkills()));
 
         // Save Industries
-        industriesService.saveIndustries(converter.toIndustriesEntity(pid, req.getIndustries()));
+        industriesService.saveIndustries(assembler.toIndustries(pid, req.getIndustries()));
 
         // Save Experience (bulk)
-        experienceService.saveAll(converter.toExperienceEntities(pid, req.getLinkedInExperience()));
+        experienceService.saveAll(assembler.toExperiences(pid, req.getLinkedInExperience()));
 
         // Save Education (bulk)
-        educationService.saveAll(converter.toEducationEntities(pid, req.getLinkedInEducation()));
+        educationService.saveAll(assembler.toEducations(pid, req.getLinkedInEducation()));
 
         // Build Response
         LinkedInResponse linkedInResponse = LinkedInResponse.builder()
