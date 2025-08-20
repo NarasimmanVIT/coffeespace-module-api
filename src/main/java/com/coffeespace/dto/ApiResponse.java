@@ -1,13 +1,12 @@
 package com.coffeespace.dto;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
 
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
 @Builder
-@JsonIgnoreProperties(ignoreUnknown = true)
+@AllArgsConstructor
 public class ApiResponse<T> {
     private String message;
     private int statusCode;
