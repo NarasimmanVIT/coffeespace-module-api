@@ -4,7 +4,7 @@ import com.coffeespace.constants.ResponseConstants;
 import com.coffeespace.dto.*;
 import com.coffeespace.entity.Otp;
 import com.coffeespace.entity.Profile;
-import com.coffeespace.repository.ProfileRepository; // <-- add this import
+import com.coffeespace.repository.ProfileRepository;
 import com.coffeespace.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,10 +20,10 @@ public class AuthService {
 
     private final OtpService otpService;
     private final JwtUtil jwtUtil;
-    private final ProfileRepository profileRepository; // <-- injected
+    private final ProfileRepository profileRepository;
 
     public ApiResponse<SendOtpData> sendOtp(SendOtpRequest request) {
-        log.info("Sending OTP to phone number: {}", request.getPhoneNumber());
+        log.info("📤 Sending OTP to phone number: {}", request.getPhoneNumber());
 
         String staticOtp = "1111";
         int expiryInSeconds = 500;
@@ -48,7 +48,7 @@ public class AuthService {
     }
 
     public ApiResponse<VerifyOtpData> verifyOtp(VerifyOtpRequest request) {
-        log.info("Verifying OTP for phone number: {}", request.getPhoneNumber());
+        log.info("🔐 Verifying OTP for phone number: {}", request.getPhoneNumber());
 
         if (request == null ||
                 request.getPhoneNumber() == null || request.getPhoneNumber().isBlank() ||
@@ -59,7 +59,7 @@ public class AuthService {
         Optional<Otp> latestOtpOpt = otpService.getLatestOtpByPhone(request.getPhoneNumber());
 
         if (latestOtpOpt.isEmpty()) {
-            log.warn("No OTP found for phone: {}", request.getPhoneNumber());
+            log.warn("⚠️ No OTP found for phone: {}", request.getPhoneNumber());
             return buildError(ResponseConstants.INVALID_PHONE, ResponseConstants.BAD_REQUEST_CODE);
         }
 
@@ -67,17 +67,19 @@ public class AuthService {
 
         if (!latestOtp.getOtp().equals(request.getOtp()) ||
                 latestOtp.getExpiryTime().isBefore(LocalDateTime.now())) {
-            log.warn("Invalid or expired OTP for phone: {}", request.getPhoneNumber());
+            log.warn("❌ Invalid or expired OTP for phone: {}", request.getPhoneNumber());
             return buildError(ResponseConstants.INVALID_OR_EXPIRED_OTP, ResponseConstants.BAD_REQUEST_CODE);
         }
 
-        String token = jwtUtil.generateToken(request.getPhoneNumber());
-
-        // Check if profile exists
+        // ✅ Fetch profileId (userId)
         Optional<Profile> profileOpt = profileRepository.findByContactNumber(request.getPhoneNumber());
         String profileId = profileOpt.map(p -> p.getId().toString()).orElse(null);
 
-        log.info("OTP verified. Existing profile ID: {}", profileId);
+        log.info("✅ OTP verified. Existing profileId: {}", profileId);
+
+        // ✅ Generate token with both userId and phoneNumber
+        String token = jwtUtil.generateToken(profileId, request.getPhoneNumber());
+        log.info("🎯 Generated JWT for userId={} phoneNumber={}", profileId, request.getPhoneNumber());
 
         return ApiResponse.<VerifyOtpData>builder()
                 .message(ResponseConstants.OTP_VERIFIED)
