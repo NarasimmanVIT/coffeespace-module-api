@@ -20,4 +20,5 @@ public class OtpService {
     public Optional<Otp> getLatestOtpByPhone(String phoneNumber) {
         return otpRepository.findTopByPhoneNumberOrderByExpiryTimeDesc(phoneNumber);
     }
+
 }

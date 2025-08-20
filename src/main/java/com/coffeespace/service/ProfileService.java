@@ -26,6 +26,7 @@ public class ProfileService {
     public Profile saveProfile(RegisterRequest req) {
         log.info("Saving profile for email: {}", req.getEmail());
 
+
         Profile entity = profileConverter.modelToEntity(req);
         return profileRepository.save(entity);
     }

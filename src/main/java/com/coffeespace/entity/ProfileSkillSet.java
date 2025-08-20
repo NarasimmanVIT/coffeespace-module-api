@@ -11,8 +11,6 @@ import lombok.Setter;
 @Table(name = "profile_skill_set")
 public class ProfileSkillSet extends BaseEntity {
 
-
-
     private Long profileid;
     private String skill1;
     private String skill2;

@@ -7,5 +7,7 @@ import java.util.Optional;
 
 public interface ProfileRepository extends JpaRepository<Profile, Long> {
     Optional<Profile> findByEmail(String email);
-    Optional<Profile> findByContactNumber(String contactNumber); // NEW METHOD
+    Optional<Profile> findByContactNumber(String contactNumber);
+
+
 }

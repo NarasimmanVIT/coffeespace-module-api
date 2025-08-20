@@ -1,7 +1,6 @@
 package com.coffeespace.service;
 
 import com.coffeespace.converter.ProfileSkillSetConverter;
-import com.coffeespace.dto.RegisterRequest;
 import com.coffeespace.entity.ProfileSkillSet;
 import com.coffeespace.repository.ProfileSkillSetRepository;
 import lombok.RequiredArgsConstructor;
@@ -31,5 +30,18 @@ public class ProfileSkillSetService {
         ProfileSkillSet entity = repository.findByProfileid(profileId)
                 .orElse(null);
         return entity != null ? converter.entityToModel(entity) : List.of();
+    }
+
+    @Transactional
+    public void updateSkills(Long profileId, List<String> skills) {
+        log.info("Updating skills for profileId={}", profileId);
+        ProfileSkillSet skillSet = repository.findByProfileid(profileId)
+                .orElseGet(() -> {
+                    ProfileSkillSet s = new ProfileSkillSet();
+                    s.setProfileid(profileId);
+                    return s;
+                });
+        converter.updateEntity(skillSet, skills);
+        repository.save(skillSet);
     }
 }

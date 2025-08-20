@@ -25,6 +25,7 @@ public class RegistrationService {
     public RegisterResponse register(RegisterRequest req) {
         log.info("Starting registration for email: {}", req.getEmail());
 
+
         Profile profile = profileService.saveProfile(req);
         Long pid = profile.getId();
 
@@ -33,6 +34,8 @@ public class RegistrationService {
         industriesService.saveIndustries(pid, req.getIndustries());
         experienceService.saveAll(pid, req.getLinkedInExperience());
         educationService.saveAll(pid, req.getLinkedInEducation());
+
+
 
         LinkedInResponse linkedInResponse = LinkedInResponse(req);
 
