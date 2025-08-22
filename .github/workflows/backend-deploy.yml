@@ -82,7 +82,7 @@ jobs:
 
           aws ssm wait command-executed \
             --command-id "$COMMAND_ID" \
-            --targets "Key=instanceIds,Values=$EC2_INSTANCE_IDS" \
+            --instance-id "$EC2_INSTANCE_IDS" \
             --region ap-south-1
 
           echo "✅ Deployment completed successfully via SSM."
