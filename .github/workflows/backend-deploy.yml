@@ -1,89 +1,67 @@
-name: Deploy to EC2 via SSM
+name: Backend CI/CD to EC2 (with Postgres & SSM)
 
 on:
   push:
-    branches: [ master ]
-  workflow_dispatch:
+    branches:
+      - master
 
 env:
   AWS_REGION: ap-south-1
-  IMAGE_NAME: coffeespace-backend
-  ECR_REPO: coffeespace-backend
-  EC2_INSTANCE_IDS: i-0dbc533f9c7a8cf30
+  IMAGE_REPO_NAME: coffeespace-backend
+  CONTAINER_NAME: coffeespace-backend
+  EC2_INSTANCE_IDS: i-0dbc533f9c7a8cf30  # <-- replace with your EC2 ID
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Validate AWS secrets
-        run: |
-          [ -n "${{ secrets.AWS_ACCESS_KEY_ID }}" ] && [ -n "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ] \
-            && echo "✅ AWS secrets are available." || { echo "❌ Missing AWS secrets"; exit 1; }
-
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Get AWS Account ID
-        run: echo "AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
-
-      - name: Ensure ECR repo exists (no-op if present)
+      - name: Log in to Amazon ECR
+        id: login-ecr
         run: |
-          aws ecr describe-repositories --repository-names "$ECR_REPO" >/dev/null 2>&1 \
-          || aws ecr create-repository --repository-name "$ECR_REPO" >/dev/null 2>&1 || true
+          aws ecr get-login-password --region $AWS_REGION \
+            | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
 
-      - name: Login to ECR (runner)
+      - name: Build, tag, and push image
         run: |
-          aws ecr get-login-password --region "$AWS_REGION" \
-          | docker login --username AWS --password-stdin "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          IMAGE_URI=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_REPO_NAME}:latest
+          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
 
-      - name: Build Docker image
-        run: docker build -t "${IMAGE_NAME}:latest" .
+          docker build -t $IMAGE_URI .
+          docker push $IMAGE_URI
 
-      - name: Tag Docker image
-        run: |
-          docker tag "${IMAGE_NAME}:latest" "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:latest"
-          docker tag "${IMAGE_NAME}:latest" "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:${GITHUB_SHA}"
-
-      - name: Push image to ECR
-        run: |
-          docker push "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:latest"
-          docker push "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:${GITHUB_SHA}"
-
-      # ---- DEPLOY ON EC2 VIA SSM ----
       - name: Deploy to EC2 via SSM
-        env:
-          BOOTSTRAP_URL: https://coffee-shop-space.s3.ap-south-1.amazonaws.com/bootstrap.sh
-          COMPOSE_URL: https://coffee-shop-space.s3.ap-south-1.amazonaws.com/docker-compose.yml
         run: |
+          AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           aws ssm send-command \
-            --targets "Key=instanceIds,Values=${EC2_INSTANCE_IDS}" \
+            --targets "Key=InstanceIds,Values=${EC2_INSTANCE_IDS}" \
             --document-name "AWS-RunShellScript" \
-            --comment "Bootstrap host if needed, then pull and run latest image" \
+            --comment "Deploy coffeespace-backend via Docker Compose" \
             --region "$AWS_REGION" \
             --parameters '{
               "commands": [
                 "set -euo pipefail",
-                "echo \"==> Working at /home/ubuntu/app\"",
-                "sudo mkdir -p /home/ubuntu/app && cd /home/ubuntu/app",
-                "echo \"==> Downloading bootstrap.sh\"",
-                "curl -fsSL '"$BOOTSTRAP_URL"' -o bootstrap.sh",
-                "sudo bash bootstrap.sh",
-                "echo \"==> Downloading docker-compose.yml\"",
-                "curl -fsSL '"$COMPOSE_URL"' -o docker-compose.yml",
-                "echo \"==> ECR login\"",
-                "aws ecr get-login-password --region '"$AWS_REGION"' | sudo docker login --username AWS --password-stdin '"${AWS_ACCOUNT_ID}"'.dkr.ecr.'"$AWS_REGION"'.amazonaws.com",
-                "echo \"==> Compose pull & up\"",
+                "echo \"==> Installing SSM Agent if missing\"",
+                "if ! systemctl status amazon-ssm-agent >/dev/null 2>&1; then curl -o /tmp/amazon-ssm-agent.deb https://s3.amazonaws.com/amazon-ssm-ap-south-1/latest/debian_amd64/amazon-ssm-agent.deb && sudo dpkg -i /tmp/amazon-ssm-agent.deb && sudo systemctl enable amazon-ssm-agent && sudo systemctl start amazon-ssm-agent; fi",
+                "echo \"==> Fetch docker-compose.yml\"",
+                "curl -fsSL https://coffee-shop-space.s3.ap-south-1.amazonaws.com/docker-compose.yml -o /home/ubuntu/app/docker-compose.yml",
+                "cd /home/ubuntu/app",
+                "echo \"==> Logging in to ECR\"",
+                "aws ecr get-login-password --region '"$AWS_REGION"' | sudo docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.'"$AWS_REGION"'.amazonaws.com",
+                "echo \"==> Pulling and starting containers\"",
                 "sudo docker compose pull || sudo docker-compose pull",
                 "sudo docker compose up -d --remove-orphans || sudo docker-compose up -d --remove-orphans",
-                "echo \"==> Running containers:\"",
                 "sudo docker ps -a"
               ]
             }'
