@@ -73,16 +73,25 @@ jobs:
                 "set -euo pipefail",
                 "echo \"==> Working at /home/ubuntu/app\"",
                 "sudo mkdir -p /home/ubuntu/app && cd /home/ubuntu/app",
+
                 "echo \"==> Downloading bootstrap.sh\"",
                 "curl -fsSL '"$BOOTSTRAP_URL"' -o bootstrap.sh",
                 "sudo bash bootstrap.sh",
+
                 "echo \"==> Downloading docker-compose.yml\"",
                 "curl -fsSL '"$COMPOSE_URL"' -o docker-compose.yml",
+
+                "echo \"==> Writing .env file for compose\"",
+                "echo AWS_ACCOUNT_ID='"$AWS_ACCOUNT_ID"' | sudo tee .env",
+                "echo AWS_REGION='"$AWS_REGION"' | sudo tee -a .env",
+
                 "echo \"==> ECR login\"",
                 "aws ecr get-login-password --region '"$AWS_REGION"' | sudo docker login --username AWS --password-stdin '"${AWS_ACCOUNT_ID}"'.dkr.ecr.'"$AWS_REGION"'.amazonaws.com",
+
                 "echo \"==> Compose pull & up\"",
-                "sudo docker compose pull || sudo docker-compose pull",
-                "sudo docker compose up -d --remove-orphans || sudo docker-compose up -d --remove-orphans",
+                "sudo docker compose --env-file .env pull || sudo docker-compose --env-file .env pull",
+                "sudo docker compose --env-file .env up -d --remove-orphans || sudo docker-compose --env-file .env up -d --remove-orphans",
+
                 "echo \"==> Running containers:\"",
                 "sudo docker ps -a"
               ]
