@@ -70,51 +70,12 @@ jobs:
             --document-name "AWS-RunShellScript" \
             --comment "Deploy backend + MySQL using Docker Compose" \
             --region "$AWS_REGION" \
-            --parameters 'commands=[
-              "sudo apt-get update && sudo apt-get install -y docker.io docker-compose",
-              "mkdir -p $APP_DIR",
-              "cat > $APP_DIR/docker-compose.yml <<EOF
-version: \"3.9\"
-
-services:
-  mysql:
-    image: mysql:8
-    container_name: coffeespace-db
-    environment:
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-    volumes:
-      - mysql_data:/var/lib/mysql
-    restart: always
-    healthcheck:
-      test: [\"CMD-SHELL\", \"mysqladmin ping -h localhost -u \${MYSQL_USER} -p\${MYSQL_PASSWORD}\"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
-
-  backend:
-    image: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:latest
-    container_name: coffeespace-backend
-    depends_on:
-      mysql:
-        condition: service_healthy
-    environment:
-      SPRING_PROFILES_ACTIVE: prod
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/\${MYSQL_DATABASE}
-      SPRING_DATASOURCE_USERNAME: \${MYSQL_USER}
-      SPRING_DATASOURCE_PASSWORD: \${MYSQL_PASSWORD}
-    ports:
-      - \"8080:8080\"
-    restart: always
-
-volumes:
-  mysql_data:
-EOF",
-              "cd $APP_DIR",
-              "docker compose pull",
-              "docker compose up -d --remove-orphans",
-              "docker ps -a"
-            ]'
+            --parameters "commands=[
+              'sudo apt-get update && sudo apt-get install -y docker.io docker-compose',
+              'mkdir -p $APP_DIR',
+              'cp $GITHUB_WORKSPACE/docker-compose.yml $APP_DIR/',
+              'cd $APP_DIR',
+              'docker compose pull',
+              'docker compose up -d --remove-orphans',
+              'docker ps -a'
+            ]"
