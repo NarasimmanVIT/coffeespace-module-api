@@ -76,13 +76,49 @@ jobs:
             --output text)
 
           echo "SSM Command ID: $COMMAND_ID"
-          echo "$COMMAND_ID" > command-id.txt
 
-          echo "SSM Command sent. Waiting for execution..."
+          # Poll until status is no longer InProgress
+          while true; do
+            STATUS=$(aws ssm get-command-invocation \
+              --instance-id "$EC2_INSTANCE_IDS" \
+              --command-id "$COMMAND_ID" \
+              --query 'Status' --output text)
 
-          aws ssm wait command-executed \
-            --command-id "$COMMAND_ID" \
+            echo "Current status: $STATUS"
+
+            if [[ "$STATUS" =~ ^(Success|Failed|DeliveryTimedOut|ExecutionTimedOut|Cancelled)$ ]]; then
+              echo "Reached terminal status: $STATUS"
+              break
+            fi
+
+            sleep 5
+          done
+
+          # Fetch exit code and logs
+          RESPONSE_CODE=$(aws ssm get-command-invocation \
             --instance-id "$EC2_INSTANCE_IDS" \
-            --region ap-south-1
+            --command-id "$COMMAND_ID" \
+            --query 'ResponseCode' --output text)
+
+          STDOUT=$(aws ssm get-command-invocation \
+            --instance-id "$EC2_INSTANCE_IDS" \
+            --command-id "$COMMAND_ID" \
+            --query 'StandardOutputContent' --output text)
+
+          STDERR=$(aws ssm get-command-invocation \
+            --instance-id "$EC2_INSTANCE_IDS" \
+            --command-id "$COMMAND_ID" \
+            --query 'StandardErrorContent' --output text)
+
+          echo "ResponseCode: $RESPONSE_CODE"
+          echo "STDOUT:"
+          echo "$STDOUT"
+          echo "STDERR:"
+          echo "$STDERR"
+
+          if [[ "$RESPONSE_CODE" -ne 0 ]]; then
+            echo "❌ Deployment failed with exit code $RESPONSE_CODE"
+            exit $RESPONSE_CODE
+          fi
 
           echo "✅ Deployment completed successfully via SSM."
