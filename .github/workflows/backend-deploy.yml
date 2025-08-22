@@ -67,32 +67,22 @@ jobs:
           EC2_INSTANCE_IDS: i-0dbc533f9c7a8cf30
         run: |
           aws ssm send-command \
-          --targets "Key=instanceIds,Values=${EC2_INSTANCE_IDS}" \
-          --document-name "AWS-RunShellScript" \
-          --comment "Bootstrap host if needed, then pull and run latest image" \
-          --region "$AWS_REGION" \
-          --parameters '{"commands":[
-            "set -euo pipefail",
-            "echo \"==> Working at /home/ubuntu/app\"",
-            "sudo mkdir -p /home/ubuntu/app && cd /home/ubuntu/app",
+            --targets "Key=instanceIds,Values=${{ secrets.EC2_INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy latest Docker image" \
+            --parameters 'commands=["cd /home/ubuntu/app && docker compose pull && docker compose up -d"]' \
+            --region ap-south-1 \
+            --query "Command.CommandId" \
+            --output text > command-id.txt
 
-            "echo \"==> Downloading bootstrap.sh\"",
-            "curl -fsSL '"$BOOTSTRAP_URL"' -o bootstrap.sh",
-            "sudo bash bootstrap.sh",
+          echo "SSM Command sent. Waiting for execution..."
 
-            "echo \"==> Downloading docker-compose.yml\"",
-            "curl -fsSL '"$COMPOSE_URL"' -o docker-compose.yml",
+          COMMAND_ID=$(cat command-id.txt)
 
-            "echo \"==> Writing .env file for compose\"",
-            "cat <<EOF | sudo tee .env\nAWS_ACCOUNT_ID='"$AWS_ACCOUNT_ID"'\nAWS_REGION='"$AWS_REGION"'\nEOF",
+           # Wait for command to finish
+          aws ssm wait command-executed \
+            --command-id "$COMMAND_ID" \
+            --targets "Key=instanceIds,Values=${{ secrets.EC2_INSTANCE_ID }}" \
+            --region ap-south-1
 
-            "echo \"==> ECR login\"",
-            "aws ecr get-login-password --region '"$AWS_REGION"' | sudo docker login --username AWS --password-stdin '"$AWS_ACCOUNT_ID"'.dkr.ecr.'"$AWS_REGION"'.amazonaws.com",
-
-            "echo \"==> Compose pull & up\"",
-            "sudo docker compose --env-file .env pull || sudo docker-compose --env-file .env pull",
-            "sudo docker compose --env-file .env up -d --remove-orphans || sudo docker-compose --env-file .env up -d --remove-orphans",
-
-            "echo \"==> Running containers:\"",
-            "sudo docker ps -a"
-          ]}'
+          echo "✅ Deployment completed successfully via SSM."
