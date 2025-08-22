@@ -1,24 +1,25 @@
-name: Backend CI/CD to EC2 (with Postgres & SSM)
+name: Deploy to EC2 via SSM
 
 on:
   push:
     branches:
-      - master
+      - main   # your deployment branch
 
 env:
   AWS_REGION: ap-south-1
-  IMAGE_REPO_NAME: coffeespace-backend
-  CONTAINER_NAME: coffeespace-backend
-  EC2_INSTANCE_IDS: i-0dbc533f9c7a8cf30  # <-- replace with your EC2 ID
+  AWS_ACCOUNT_ID: 312471576153
+  ECR_REPOSITORY: coffeespace-backend
+  APP_DIR: /home/ubuntu/app
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
 
+      # ✅ Build and push image to ECR (keep as you already had it)
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -26,42 +27,30 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Log in to Amazon ECR
-        id: login-ecr
+      - name: Login to Amazon ECR
         run: |
-          aws ecr get-login-password --region $AWS_REGION \
-            | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+          aws ecr get-login-password --region $AWS_REGION | \
+          docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
 
-      - name: Build, tag, and push image
+      - name: Build, tag, and push docker image
         run: |
-          AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          IMAGE_URI=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_REPO_NAME}:latest
-          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
+          IMAGE_TAG=latest
+          docker build -t $ECR_REPOSITORY:$IMAGE_TAG .
+          docker tag $ECR_REPOSITORY:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
 
-          docker build -t $IMAGE_URI .
-          docker push $IMAGE_URI
-
-      - name: Deploy to EC2 via SSM
+      # ✅ Trigger SSM on EC2 to pull and run docker-compose
+      - name: Deploy on EC2 via SSM
         run: |
-          AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           aws ssm send-command \
-            --targets "Key=InstanceIds,Values=${EC2_INSTANCE_IDS}" \
+            --targets "Key=instanceIds,Values=${{ secrets.EC2_INSTANCE_ID }}" \
             --document-name "AWS-RunShellScript" \
-            --comment "Deploy coffeespace-backend via Docker Compose" \
-            --region "$AWS_REGION" \
-            --parameters '{
-              "commands": [
-                "set -euo pipefail",
-                "echo \"==> Installing SSM Agent if missing\"",
-                "if ! systemctl status amazon-ssm-agent >/dev/null 2>&1; then curl -o /tmp/amazon-ssm-agent.deb https://s3.amazonaws.com/amazon-ssm-ap-south-1/latest/debian_amd64/amazon-ssm-agent.deb && sudo dpkg -i /tmp/amazon-ssm-agent.deb && sudo systemctl enable amazon-ssm-agent && sudo systemctl start amazon-ssm-agent; fi",
-                "echo \"==> Fetch docker-compose.yml\"",
-                "curl -fsSL https://coffee-shop-space.s3.ap-south-1.amazonaws.com/docker-compose.yml -o /home/ubuntu/app/docker-compose.yml",
-                "cd /home/ubuntu/app",
-                "echo \"==> Logging in to ECR\"",
-                "aws ecr get-login-password --region '"$AWS_REGION"' | sudo docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.'"$AWS_REGION"'.amazonaws.com",
-                "echo \"==> Pulling and starting containers\"",
-                "sudo docker compose pull || sudo docker-compose pull",
-                "sudo docker compose up -d --remove-orphans || sudo docker-compose up -d --remove-orphans",
-                "sudo docker ps -a"
-              ]
-            }'
+            --comment "Deploy latest backend container" \
+            --region $AWS_REGION \
+            --parameters 'commands=[
+              "cd $APP_DIR",
+              "echo AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID > .env",
+              "echo AWS_REGION=$AWS_REGION >> .env",
+              "docker compose pull backend",
+              "docker compose up -d"
+            ]'
