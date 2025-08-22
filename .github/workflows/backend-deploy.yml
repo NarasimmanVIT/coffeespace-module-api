@@ -1,4 +1,4 @@
-name: Deploy to EC2 via SSM.
+name: Deploy to EC2 via SSM
 
 on:
   push:
@@ -11,7 +11,7 @@ env:
   IMAGE_NAME: coffeespace-backend
   APP_DIR: /home/ubuntu/app
   ECR_REPO: coffeespace-backend
-  EC2_INSTANCE_IDS: i-0dbc533f9c7a8cf30
+  EC2_INSTANCE_IDS: i-0dbc533f9c7a8cf30  # Replace with your EC2 ID(s)
 
 jobs:
   deploy:
@@ -21,7 +21,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Validate secrets
+      - name: Validate AWS secrets
         run: |
           if [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ] || [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
             echo "❌ AWS secrets are missing!"
@@ -42,8 +42,8 @@ jobs:
 
       - name: Ensure ECR repo exists
         run: |
-          if ! aws ecr describe-repositories --repository-names "$ECR_REPO" --region "$AWS_REGION" >/dev/null 2>&1; then
-            aws ecr create-repository --repository-name "$ECR_REPO" --region "$AWS_REGION"
+          if ! aws ecr describe-repositories --repository-names "$ECR_REPO" >/dev/null 2>&1; then
+            aws ecr create-repository --repository-name "$ECR_REPO"
           fi
 
       - name: Login to Amazon ECR
@@ -63,15 +63,57 @@ jobs:
           docker push "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:latest"
           docker push "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:${GITHUB_SHA}"
 
-      - name: Trigger deploy via SSM
+      - name: Deploy to EC2 via SSM
         run: |
           aws ssm send-command \
             --targets "Key=instanceIds,Values=${EC2_INSTANCE_IDS}" \
             --document-name "AWS-RunShellScript" \
-            --comment "Deploy new Docker image from GitHub Actions" \
+            --comment "Deploy backend + MySQL using Docker Compose" \
             --region "$AWS_REGION" \
             --parameters 'commands=[
+              "sudo apt-get update && sudo apt-get install -y docker.io docker-compose",
+              "mkdir -p $APP_DIR",
+              "cat > $APP_DIR/docker-compose.yml <<EOF
+version: \"3.9\"
+services:
+  mysql:
+    image: mysql:8
+    container_name: coffeespace-db
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: always
+    healthcheck:
+      test: [\"CMD-SHELL\", \"mysqladmin ping -h localhost -u \${MYSQL_USER} -p\${MYSQL_PASSWORD}\"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  backend:
+    image: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:latest
+    container_name: coffeespace-backend
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/\${MYSQL_DATABASE}
+      SPRING_DATASOURCE_USERNAME: \${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: \${MYSQL_PASSWORD}
+    ports:
+      - \"8080:8080\"
+    restart: always
+
+volumes:
+  mysql_data:
+EOF",
               "cd $APP_DIR",
               "docker compose pull",
-              "docker compose up -d --remove-orphans"
+              "docker compose up -d --remove-orphans",
+              "docker ps -a"
             ]'
