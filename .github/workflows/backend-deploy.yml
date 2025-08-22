@@ -75,6 +75,7 @@ jobs:
               "mkdir -p $APP_DIR",
               "cat > $APP_DIR/docker-compose.yml <<EOF
 version: \"3.9\"
+
 services:
   mysql:
     image: mysql:8
