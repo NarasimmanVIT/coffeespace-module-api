@@ -1,45 +1,42 @@
 version: "3.9"
 
 services:
-  postgres:
-    image: postgres:15
+  mysql:
+    image: mysql:8
     container_name: coffeespace-db
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    # Do NOT publish 5432 to the internet (safer). Remove ports mapping.
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - mysql_data:/var/lib/mysql
     restart: always
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u ${MYSQL_USER} -p${MYSQL_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 20s
 
   backend:
-    image: coffeespace-backend:latest     # local image shipped by the pipeline
+    image: coffeespace-backend:latest
     container_name: coffeespace-backend
-    pull_policy: never                    # never try to pull from a registry
     depends_on:
-      postgres:
+      mysql:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
     ports:
       - "8080:8080"
     restart: always
 
-  # Placeholder; we’ll wire this later when you add the FE image
   frontend:
     image: coffeespace-frontend:latest
     container_name: coffeespace-frontend
-    pull_policy: never
     depends_on:
       - backend
     ports:
@@ -47,4 +44,4 @@ services:
     restart: always
 
 volumes:
-  postgres_data:
+  mysql_data:
