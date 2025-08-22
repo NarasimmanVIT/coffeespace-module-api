@@ -42,8 +42,14 @@ jobs:
 
       - name: Ensure ECR repo exists
         run: |
-          aws ecr describe-repositories --repository-names "$ECR_REPO" >/dev/null 2>&1 || \
-          aws ecr create-repository --repository-name "$ECR_REPO"
+          set +e
+          aws ecr describe-repositories --repository-names "$ECR_REPO" --region "$AWS_REGION"
+          if [ $? -ne 0 ]; then
+            aws ecr create-repository --repository-name "$ECR_REPO" --region "$AWS_REGION" || true
+          else
+            echo "✅ ECR repo $ECR_REPO already exists."
+          fi
+          set -e
 
       - name: Login to Amazon ECR
         run: |
