@@ -1,13 +1,18 @@
-name: Deploy to EC2
+name: Deploy to EC2 via SSM
 
 on:
   push:
     branches:
       - master
+  workflow_dispatch:
 
 env:
-  APP_DIR: /home/ubuntu/app
+  AWS_REGION: ap-south-1
   IMAGE_NAME: coffeespace-backend
+  APP_DIR: /home/ubuntu/app
+  ECR_REPO: coffeespace-backend
+  # ECR registry constructed later
+  EC2_INSTANCE_IDS: i-0dbc533f9c7a8cf30   # <-- Replace with your EC2 instance ID(s), comma-separated
 
 jobs:
   deploy:
@@ -17,45 +22,58 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Load .env variables
+      - name: Load .env
         run: |
-          set -o allexport
+          set -a
           source .env
-          set +o allexport
+          set +a
+          echo "AWS_REGION=$AWS_REGION" >> $GITHUB_ENV
+          echo "AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID" >> $GITHUB_ENV
+          echo "ECR_REPO=$ECR_REPO" >> $GITHUB_ENV
+          echo "ECR_REGISTRY=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com" >> $GITHUB_ENV
+          echo "EC2_INSTANCE_IDS=$EC2_INSTANCE_IDS" >> $GITHUB_ENV
+          echo "APP_DIR=$APP_DIR" >> $GITHUB_ENV
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
 
-      - name: Set up Docker
-        uses: docker/setup-buildx-action@v3
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Ensure ECR repo exists
+        run: |
+          if ! aws ecr describe-repositories --repository-names "$ECR_REPO" --region "$AWS_REGION" >/dev/null 2>&1; then
+            aws ecr create-repository --repository-name "$ECR_REPO" --region "$AWS_REGION"
+          fi
+
+      - name: Login to Amazon ECR
+        run: |
+          aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "${ECR_REGISTRY}"
 
       - name: Build Docker image
-        run: docker build -t $IMAGE_NAME .
+        run: docker build -t "$IMAGE_NAME:latest" .
 
-      - name: Archive backend files
-        run: tar -czf deploy_package.tar.gz backend/ docker-compose.yml deploy.sh
-
-      - name: Write SSH key to file
+      - name: Tag Docker image
         run: |
-          echo "$EC2_KEY" > /tmp/deploy_key.pem
-          chmod 600 /tmp/deploy_key.pem
+          docker tag "$IMAGE_NAME:latest" "${ECR_REGISTRY}/${ECR_REPO}:latest"
+          docker tag "$IMAGE_NAME:latest" "${ECR_REGISTRY}/${ECR_REPO}:${GITHUB_SHA}"
 
-      - name: Copy files to EC2
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: $EC2_HOST
-          username: $EC2_USER
-          key_path: /tmp/deploy_key.pem
-          source: deploy_package.tar.gz,deploy.sh
-          target: $APP_DIR
-          port: 22
+      - name: Push image to ECR
+        run: |
+          docker push "${ECR_REGISTRY}/${ECR_REPO}:latest"
+          docker push "${ECR_REGISTRY}/${ECR_REPO}:${GITHUB_SHA}"
 
-      - name: Run deploy script on EC2
-        uses: appleboy/ssh-action@v0.1.6
-        with:
-          host: $EC2_HOST
-          username: $EC2_USER
-          key_path: /tmp/deploy_key.pem
-          port: 22
-          script: |
-            cd $APP_DIR
-            tar -xzf deploy_package.tar.gz
-            chmod +x deploy.sh
-            ./deploy.sh
+      - name: Trigger deploy via SSM
+        run: |
+          aws ssm send-command \
+            --targets "Key=instanceIds,Values=${EC2_INSTANCE_IDS}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy new Docker image from GitHub Actions" \
+            --region "$AWS_REGION" \
+            --parameters 'commands=[
+              "cd $APP_DIR",
+              "docker compose pull",
+              "docker compose up -d --remove-orphans"
+            ]'
