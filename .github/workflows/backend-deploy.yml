@@ -66,14 +66,14 @@ jobs:
           AWS_ACCOUNT_ID: 312471576153
           EC2_INSTANCE_IDS: i-0dbc533f9c7a8cf30
         run: |
-          aws ssm send-command \
+          COMMAND_ID=$(aws ssm send-command \
             --targets "Key=instanceIds,Values=${{ secrets.EC2_INSTANCE_ID }}" \
             --document-name "AWS-RunShellScript" \
             --comment "Deploy latest Docker image" \
-            --parameters 'commands=["cd /home/ubuntu/app && docker compose pull && docker compose up -d"]' \
+            --parameters '{"commands":["cd /home/ubuntu/app && docker compose pull && docker compose up -d"]}' \
             --region ap-south-1 \
             --query "Command.CommandId" \
-            --output text > command-id.txt
+            --output text) command-id.txt
 
           echo "SSM Command sent. Waiting for execution..."
 
