@@ -67,22 +67,22 @@ jobs:
           EC2_INSTANCE_IDS: i-0dbc533f9c7a8cf30
         run: |
           COMMAND_ID=$(aws ssm send-command \
-            --targets "Key=instanceIds,Values=${{ secrets.EC2_INSTANCE_ID }}" \
+            --targets "Key=instanceIds,Values=$EC2_INSTANCE_IDS" \
             --document-name "AWS-RunShellScript" \
             --comment "Deploy latest Docker image" \
             --parameters '{"commands":["cd /home/ubuntu/app && docker compose pull && docker compose up -d"]}' \
             --region ap-south-1 \
             --query "Command.CommandId" \
-            --output text) command-id.txt
+            --output text)
+
+          echo "SSM Command ID: $COMMAND_ID"
+          echo "$COMMAND_ID" > command-id.txt
 
           echo "SSM Command sent. Waiting for execution..."
 
-          COMMAND_ID=$(cat command-id.txt)
-
-           # Wait for command to finish
           aws ssm wait command-executed \
             --command-id "$COMMAND_ID" \
-            --targets "Key=instanceIds,Values=${{ secrets.EC2_INSTANCE_ID }}" \
+            --targets "Key=instanceIds,Values=$EC2_INSTANCE_IDS" \
             --region ap-south-1
 
           echo "✅ Deployment completed successfully via SSM."
