@@ -11,7 +11,7 @@ env:
   IMAGE_NAME: coffeespace-backend
   APP_DIR: /home/ubuntu/app
   ECR_REPO: coffeespace-backend
-  EC2_INSTANCE_IDS: i-0dbc533f9c7a8cf30  # Replace with your EC2 ID(s)
+  EC2_INSTANCE_IDS: i-0dbc533f9c7a8cf30 # Replace with your EC2 ID(s)
 
 jobs:
   deploy:
@@ -76,7 +76,7 @@ jobs:
             --comment "Deploy backend + MySQL using Docker Compose" \
             --region "$AWS_REGION" \
             --parameters "commands=[
-              'sudo apt-get update && sudo apt-get install -y docker.io docker-compose',
+              'if ! command -v docker &>/dev/null; then echo \"Docker not found. Running bootstrap...\"; bash -c \"$(cat bootstrap.sh)\"; fi',
               'mkdir -p $APP_DIR',
               'cp $GITHUB_WORKSPACE/docker-compose.yml $APP_DIR/',
               'cd $APP_DIR',
