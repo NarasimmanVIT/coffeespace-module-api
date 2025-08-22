@@ -62,37 +62,37 @@ jobs:
         env:
           BOOTSTRAP_URL: https://coffee-shop-space.s3.ap-south-1.amazonaws.com/bootstrap.sh
           COMPOSE_URL: https://coffee-shop-space.s3.ap-south-1.amazonaws.com/docker-compose.yml
+          AWS_REGION: ap-south-1
+          AWS_ACCOUNT_ID: 312471576153
+          EC2_INSTANCE_IDS: i-0dbc533f9c7a8cf30
         run: |
           aws ssm send-command \
-            --targets "Key=instanceIds,Values=${EC2_INSTANCE_IDS}" \
-            --document-name "AWS-RunShellScript" \
-            --comment "Bootstrap host if needed, then pull and run latest image" \
-            --region "$AWS_REGION" \
-            --parameters '{
-              "commands": [
-                "set -euo pipefail",
-                "echo \"==> Working at /home/ubuntu/app\"",
-                "sudo mkdir -p /home/ubuntu/app && cd /home/ubuntu/app",
+          --targets "Key=instanceIds,Values=${EC2_INSTANCE_IDS}" \
+          --document-name "AWS-RunShellScript" \
+          --comment "Bootstrap host if needed, then pull and run latest image" \
+          --region "$AWS_REGION" \
+          --parameters '{"commands":[
+            "set -euo pipefail",
+            "echo \"==> Working at /home/ubuntu/app\"",
+            "sudo mkdir -p /home/ubuntu/app && cd /home/ubuntu/app",
 
-                "echo \"==> Downloading bootstrap.sh\"",
-                "curl -fsSL '"$BOOTSTRAP_URL"' -o bootstrap.sh",
-                "sudo bash bootstrap.sh",
+            "echo \"==> Downloading bootstrap.sh\"",
+            "curl -fsSL '"$BOOTSTRAP_URL"' -o bootstrap.sh",
+            "sudo bash bootstrap.sh",
 
-                "echo \"==> Downloading docker-compose.yml\"",
-                "curl -fsSL '"$COMPOSE_URL"' -o docker-compose.yml",
+            "echo \"==> Downloading docker-compose.yml\"",
+            "curl -fsSL '"$COMPOSE_URL"' -o docker-compose.yml",
 
-                "echo \"==> Writing .env file for compose\"",
-                "echo AWS_ACCOUNT_ID='"$AWS_ACCOUNT_ID"' | sudo tee .env",
-                "echo AWS_REGION='"$AWS_REGION"' | sudo tee -a .env",
+            "echo \"==> Writing .env file for compose\"",
+            "cat <<EOF | sudo tee .env\nAWS_ACCOUNT_ID='"$AWS_ACCOUNT_ID"'\nAWS_REGION='"$AWS_REGION"'\nEOF",
 
-                "echo \"==> ECR login\"",
-                "aws ecr get-login-password --region '"$AWS_REGION"' | sudo docker login --username AWS --password-stdin '"${AWS_ACCOUNT_ID}"'.dkr.ecr.'"$AWS_REGION"'.amazonaws.com",
+            "echo \"==> ECR login\"",
+            "aws ecr get-login-password --region '"$AWS_REGION"' | sudo docker login --username AWS --password-stdin '"$AWS_ACCOUNT_ID"'.dkr.ecr.'"$AWS_REGION"'.amazonaws.com",
 
-                "echo \"==> Compose pull & up\"",
-                "sudo docker compose --env-file .env pull || sudo docker-compose --env-file .env pull",
-                "sudo docker compose --env-file .env up -d --remove-orphans || sudo docker-compose --env-file .env up -d --remove-orphans",
+            "echo \"==> Compose pull & up\"",
+            "sudo docker compose --env-file .env pull || sudo docker-compose --env-file .env pull",
+            "sudo docker compose --env-file .env up -d --remove-orphans || sudo docker-compose --env-file .env up -d --remove-orphans",
 
-                "echo \"==> Running containers:\"",
-                "sudo docker ps -a"
-              ]
-            }'
+            "echo \"==> Running containers:\"",
+            "sudo docker ps -a"
+          ]}'
