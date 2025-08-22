@@ -63,7 +63,7 @@ jobs:
       - name: Push image to ECR
         run: |
           docker push "${ECR_REGISTRY}/${ECR_REPO}:latest"
-          docker push "${ECR_REGISTRY}/${ECR_REPO}:${GITHUB_SHA}"
+          docker push "${ECR_REGISTRY}/${ECR_REPO}:${GITHUB_SHA}" #test
 
       - name: Trigger deploy via SSM
         run: |
