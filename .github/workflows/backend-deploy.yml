@@ -70,8 +70,10 @@ jobs:
             --targets "Key=instanceIds,Values=$EC2_INSTANCE_IDS" \
             --document-name "AWS-RunShellScript" \
             --comment "Deploy latest Docker image" \
-            --parameters '{"commands":["aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 312471576153.dkr.ecr.ap-south-1.amazonaws.com",]}' \
-            --parameters '{"commands":["cd /home/ubuntu/app && docker compose pull && docker compose up -d"]}' \
+            --parameters '{"commands":[
+              "aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 312471576153.dkr.ecr.ap-south-1.amazonaws.com",
+              "cd /home/ubuntu/app && docker compose pull && docker compose up -d"
+            ]}' \
             --region ap-south-1 \
             --query "Command.CommandId" \
             --output text)
