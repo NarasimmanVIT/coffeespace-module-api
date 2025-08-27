@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -20,7 +21,6 @@ public class ProfileRecommendationService {
 
     private final RecommendationRepository recommendationRepository;
     private final ProfileRepository profileRepository;
-
     private final ProfileSkillSetService skillSetService;
     private final ProfileInterestedIndustriesService industriesService;
     private final ProfileAdditionalInfoService additionalInfoService;
@@ -34,11 +34,6 @@ public class ProfileRecommendationService {
         List<String> mySkills = skillSetService.getSkills(currentProfileId);
         List<String> myIndustries = industriesService.getIndustries(currentProfileId);
         RegisterRequest addl = additionalInfoService.getByProfileId(currentProfileId);
-
-        if (addl == null) {
-            log.error("No additional info found for profile {}", currentProfileId);
-            throw new IllegalArgumentException("Additional profile info missing for " + currentProfileId);
-        }
 
         List<String> skills = (mySkills == null || mySkills.isEmpty()) ? List.of("__NONE__") : mySkills;
         List<String> industries = (myIndustries == null || myIndustries.isEmpty()) ? List.of("__NONE__") : myIndustries;
@@ -63,24 +58,28 @@ public class ProfileRecommendationService {
                 size, offset
         );
 
-        log.debug("Query returned {} recommendation rows", rows.size());
-
-        List<RecommendedProfileResponse> items = rows.stream()
+        List<RecommendedProfileResponse> profiles = rows.stream()
                 .map(r -> RecommendedProfileResponse.builder()
-                        .id(((Number) r[0]).longValue())
+                        .profileId(((Number) r[0]).longValue())
                         .firstName((String) r[1])
                         .lastName((String) r[2])
                         .email((String) r[3])
                         .city((String) r[4])
-                        .score(r[5] != null ? ((Number) r[5]).doubleValue() : 0.0)
+                        .age(r[5] != null ? ((Number) r[5]).intValue() : null)  // <-- added
+                        .goal((String) r[6])
+                        .experience((String) r[7])
+                        .skills(Arrays.asList(((String) r[8]).split(",")))
+                        .industries(Arrays.asList(((String) r[9]).split(",")))
+                        .score(((Number) r[10]).doubleValue())
                         .build())
                 .toList();
+
 
         long total = recommendationRepository.countOtherProfiles(currentProfileId);
         int totalPages = (int) Math.ceil((double) total / size);
 
         return RecommendationsPageResponse.builder()
-                .items(items)
+                .profiles(profiles)
                 .page(page)
                 .size(size)
                 .total(total)

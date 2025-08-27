@@ -25,18 +25,18 @@ public class RegistrationService {
     public RegisterResponse register(RegisterRequest req) {
         log.info("Starting registration for email: {}", req.getEmail());
 
-
+        // Save profile
         Profile profile = profileService.saveProfile(req);
         Long pid = profile.getId();
 
+        // Save additional info, skills, industries, experiences, education
         additionalInfoService.save(pid, req);
         skillSetService.saveSkills(pid, req.getSkills());
         industriesService.saveIndustries(pid, req.getIndustries());
         experienceService.saveAll(pid, req.getLinkedInExperience());
         educationService.saveAll(pid, req.getLinkedInEducation());
 
-
-
+        // Build LinkedIn response
         LinkedInResponse linkedInResponse = LinkedInResponse(req);
 
         log.info("Registration completed for email: {}", req.getEmail());
@@ -64,6 +64,7 @@ public class RegistrationService {
                 .email(profile.getEmail())
                 .contactNumber(profile.getContactNumber())
                 .dob(profile.getDob())
+                .age(profile.getAge())
                 .city(profile.getCity())
                 .goal(req.getGoal())
                 .priorities(req.getPriorities())
@@ -73,5 +74,4 @@ public class RegistrationService {
                 .linkedIn(linkedInResponse)
                 .build();
     }
-
 }

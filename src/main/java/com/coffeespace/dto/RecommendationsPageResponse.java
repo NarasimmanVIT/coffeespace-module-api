@@ -1,15 +1,16 @@
 package com.coffeespace.dto;
 
-import lombok.*;
+import lombok.Builder;
+import lombok.Data;
 
 import java.util.List;
 
-@Getter @Setter @Builder
-@AllArgsConstructor @NoArgsConstructor
+@Data
+@Builder
 public class RecommendationsPageResponse {
-    private List<RecommendedProfileResponse> items;
-    private int page;       // zero-based
-    private int size;       // page size
-    private long total;     // total number of candidates considered
-    private int totalPages; // derived = ceil(total / size)
+    private List<RecommendedProfileResponse> profiles;  
+    private int page;
+    private int size;
+    private long total;
+    private int totalPages;
 }

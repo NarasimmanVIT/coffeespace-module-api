@@ -18,15 +18,9 @@ public class ProfileService {
     private final ProfileRepository profileRepository;
     private final ProfileConverter profileConverter;
 
-    /**
-     * Save a new profile using a RegisterRequest DTO.
-     * @param req the incoming register request DTO
-     * @return the saved Profile entity
-     */
+
     public Profile saveProfile(RegisterRequest req) {
         log.info("Saving profile for email: {}", req.getEmail());
-
-
         Profile entity = profileConverter.modelToEntity(req);
         return profileRepository.save(entity);
     }
@@ -58,5 +52,13 @@ public class ProfileService {
      */
     public Optional<Profile> findEntityByEmail(String email) {
         return profileRepository.findByEmail(email);
+    }
+
+    /**
+     * Update an existing profile (e.g., to modify the profilePicUrl).
+     */
+    public Profile updateProfile(Profile profile) {
+        log.info("Updating profile for id={}", profile.getId());
+        return profileRepository.save(profile);
     }
 }

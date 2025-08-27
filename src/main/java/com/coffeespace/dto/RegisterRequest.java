@@ -26,6 +26,8 @@ public class RegisterRequest {
     private String contactNumber;
     private LocalDate dob;  // or String, but LocalDate is better
     private String city;
+    private Integer age;
+    private String profilePicUrl;
 
 
     private String linkedInProfileUrl;

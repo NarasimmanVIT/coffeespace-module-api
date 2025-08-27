@@ -18,7 +18,10 @@ public class ProfileConverter implements Converter<RegisterRequest, Profile> {
         p.setEmail(req.getEmail());
         p.setContactNumber(req.getContactNumber());
         p.setDob(req.getDob());
+        p.setAge(req.getAge());
         p.setCity(req.getCity());
+
+        p.setProfilePicUrl(req.getProfilePicUrl());
         return p;
     }
 
@@ -32,6 +35,8 @@ public class ProfileConverter implements Converter<RegisterRequest, Profile> {
                 .contactNumber(profile.getContactNumber())
                 .dob(profile.getDob())
                 .city(profile.getCity())
+                .age(profile.getAge())
+                .profilePicUrl(profile.getProfilePicUrl())
                 .build();
     }
 }
