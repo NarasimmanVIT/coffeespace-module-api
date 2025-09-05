@@ -1,6 +1,7 @@
 package com.coffeespace.service;
 
 import com.coffeespace.converter.ProfileAdditionalInfoConverter;
+import com.coffeespace.dto.ProfileUpdateRequest;
 import com.coffeespace.dto.RegisterRequest;
 import com.coffeespace.entity.ProfileAdditionalInfo;
 import com.coffeespace.repository.ProfileAdditionalInfoRepository;
@@ -34,4 +35,16 @@ public class ProfileAdditionalInfoService {
         log.debug("Found additional info for profileId {}", profileId);
         return converter.entityToModel(info);
     }
+    public void update(Long profileId, ProfileUpdateRequest req) {
+        log.info("Updating ProfileAdditionalInfo for profileId={}", profileId);
+
+        ProfileAdditionalInfo info = repo.findByProfileid(profileId)
+                .orElseGet(() -> converter.modelToEntity(profileId, req)); // Use converter!
+
+        converter.updateEntity(info, req);
+        repo.save(info);
+    }
+
+
 }
+

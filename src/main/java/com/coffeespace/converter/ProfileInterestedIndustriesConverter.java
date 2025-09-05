@@ -56,4 +56,22 @@ public class ProfileInterestedIndustriesConverter {
         }
         return result;
     }
+    public void updateEntity(ProfileInterestedIndustries ind, List<String> industries) {
+        if (industries == null) return;
+        // clear all slots first
+        ind.setInterest1(null); ind.setInterest2(null); ind.setInterest3(null);
+        ind.setInterest4(null); ind.setInterest5(null);
+
+        for (int i = 0; i < Math.min(5, industries.size()); i++) {
+            String v = industries.get(i) != null ? industries.get(i).trim() : null;
+            switch (i) {
+                case 0 -> ind.setInterest1(v);
+                case 1 -> ind.setInterest2(v);
+                case 2 -> ind.setInterest3(v);
+                case 3 -> ind.setInterest4(v);
+                case 4 -> ind.setInterest5(v);
+            }
+        }
+    }
+
 }

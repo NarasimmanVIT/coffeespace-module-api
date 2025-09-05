@@ -55,4 +55,24 @@ public class ProfileSkillSetConverter {
         }
         return result;
     }
+
+    public void updateEntity(ProfileSkillSet s, List<String> skills) {
+        if (skills == null) return;
+        // clear existing first
+        s.setSkill1(null);
+        s.setSkill2(null);
+        s.setSkill3(null);
+        s.setSkill4(null);
+        s.setSkill5(null);
+        for (int i = 0; i < Math.min(5, skills.size()); i++) {
+            String v = skills.get(i) != null ? skills.get(i).trim() : null;
+            switch (i) {
+                case 0 -> s.setSkill1(v);
+                case 1 -> s.setSkill2(v);
+                case 2 -> s.setSkill3(v);
+                case 3 -> s.setSkill4(v);
+                case 4 -> s.setSkill5(v);
+            }
+        }
+    }
 }

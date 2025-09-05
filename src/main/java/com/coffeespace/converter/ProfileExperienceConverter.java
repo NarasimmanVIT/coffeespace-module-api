@@ -41,4 +41,19 @@ public class ProfileExperienceConverter {
                         .build()
         ).collect(Collectors.toList());
     }
+
+    public List<ProfileExperience> toEntities(Long profileId, List<LinkedInExperienceDTO> exps) {
+        log.debug("Converting LinkedInExperienceDTO list to ProfileExperience entities");
+        return exps == null ? List.of() : exps.stream().map(e -> {
+            ProfileExperience pe = new ProfileExperience();
+            pe.setProfileid(profileId);
+            pe.setRole(e.getTitle());
+            pe.setCompany(e.getCompany());
+            pe.setStartdate(e.getStartDate());
+            pe.setEnddate(e.getEndDate());
+            pe.setLocation(e.getLocation());
+            return pe;
+        }).collect(Collectors.toList());
+
+    }
 }

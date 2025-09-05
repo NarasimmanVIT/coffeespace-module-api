@@ -12,3 +12,14 @@ DB_PASSWORD=rootDb
 # JWT Configuration
 JWT_SECRET=ThisIsA32ByteLongSecretKeyForJWT!
 JWT_EXPIRATION=31536000000
+
+var jsonData = pm.response.json();
+if (jsonData.success && jsonData.data && jsonData.data.token) {
+    pm.environment.set("token", jsonData.data.token);
+    console.log("Token saved:", jsonData.data.token);
+}
+if (jsonData.success && jsonData.data && jsonData.data.profileId) {
+    pm.environment.set("profileId", jsonData.data.profileId);
+    console.log("Profile ID saved:", jsonData.data.profileId);
+}
+

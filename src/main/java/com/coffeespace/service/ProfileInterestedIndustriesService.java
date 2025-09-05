@@ -31,4 +31,17 @@ public class ProfileInterestedIndustriesService {
                 .orElse(null);
         return entity != null ? converter.entityToModel(entity) : List.of();
     }
+
+    @Transactional
+    public void updateIndustries(Long profileId, List<String> industries) {
+        log.info("Updating industries for profileId={}", profileId);
+        ProfileInterestedIndustries entity = repository.findByProfileid(profileId)
+                .orElseGet(() -> {
+                    ProfileInterestedIndustries ind = new ProfileInterestedIndustries();
+                    ind.setProfileid(profileId);
+                    return ind;
+                });
+        converter.updateEntity(entity, industries);
+        repository.save(entity);
+    }
 }

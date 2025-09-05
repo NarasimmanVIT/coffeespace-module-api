@@ -1,6 +1,8 @@
 package com.coffeespace.controller;
 
-import com.coffeespace.dto.*;
+import com.coffeespace.dto.ApiResponse;
+import com.coffeespace.dto.RegisterRequest;
+import com.coffeespace.dto.RegisterResponse;
 import com.coffeespace.service.RegistrationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

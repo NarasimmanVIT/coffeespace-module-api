@@ -23,4 +23,5 @@ public class Profile extends BaseEntity {
     private LocalDate dob;
     private Integer age;
     private String city;
+    private String profilePicUrl;
 }
