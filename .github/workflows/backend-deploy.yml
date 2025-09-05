@@ -1,0 +1,127 @@
+name: Deploy to EC2 via SSM
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ap-south-1
+  IMAGE_NAME: coffeespace-backend
+  ECR_REPO: coffeespace-backend
+  EC2_INSTANCE_IDS: i-0dbc533f9c7a8cf30
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Validate AWS secrets
+        run: |
+          [ -n "${{ secrets.AWS_ACCESS_KEY_ID }}" ] && [ -n "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ] \
+            && echo "✅ AWS secrets are available." || { echo "❌ Missing AWS secrets"; exit 1; }
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get AWS Account ID
+        run: echo "AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
+
+      - name: Ensure ECR repo exists (no-op if present)
+        run: |
+          aws ecr describe-repositories --repository-names "$ECR_REPO" >/dev/null 2>&1 \
+          || aws ecr create-repository --repository-name "$ECR_REPO" >/dev/null 2>&1 || true
+
+      - name: Login to ECR (runner)
+        run: |
+          aws ecr get-login-password --region "$AWS_REGION" \
+          | docker login --username AWS --password-stdin "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+
+      - name: Build Docker image
+        run: docker build -t "${IMAGE_NAME}:latest" .
+
+      - name: Tag Docker image
+        run: |
+          docker tag "${IMAGE_NAME}:latest" "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:latest"
+          docker tag "${IMAGE_NAME}:latest" "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:${GITHUB_SHA}"
+
+      - name: Push image to ECR
+        run: |
+          docker push "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:latest"
+          docker push "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:${GITHUB_SHA}"
+
+      # ---- DEPLOY ON EC2 VIA SSM ----
+      - name: Deploy to EC2 via SSM
+        env:
+          BOOTSTRAP_URL: https://coffee-shop-space.s3.ap-south-1.amazonaws.com/bootstrap.sh
+          COMPOSE_URL: https://coffee-shop-space.s3.ap-south-1.amazonaws.com/docker-compose.yml
+          AWS_REGION: ap-south-1
+          AWS_ACCOUNT_ID: 312471576153
+          EC2_INSTANCE_IDS: i-0dbc533f9c7a8cf30
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --targets "Key=instanceIds,Values=$EC2_INSTANCE_IDS" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy latest Docker image" \
+            --parameters '{"commands":[
+              "aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 312471576153.dkr.ecr.ap-south-1.amazonaws.com",
+              "cd /home/ubuntu/app && docker compose pull && docker compose up -d"
+            ]}' \
+            --region ap-south-1 \
+            --query "Command.CommandId" \
+            --output text)
+
+          echo "SSM Command ID: $COMMAND_ID"
+
+          # Poll until status is no longer InProgress
+          while true; do
+            STATUS=$(aws ssm get-command-invocation \
+              --instance-id "$EC2_INSTANCE_IDS" \
+              --command-id "$COMMAND_ID" \
+              --query 'Status' --output text)
+
+            echo "Current status: $STATUS"
+
+            if [[ "$STATUS" =~ ^(Success|Failed|DeliveryTimedOut|ExecutionTimedOut|Cancelled)$ ]]; then
+              echo "Reached terminal status: $STATUS"
+              break
+            fi
+
+            sleep 5
+          done
+
+          # Fetch exit code and logs
+          RESPONSE_CODE=$(aws ssm get-command-invocation \
+            --instance-id "$EC2_INSTANCE_IDS" \
+            --command-id "$COMMAND_ID" \
+            --query 'ResponseCode' --output text)
+
+          STDOUT=$(aws ssm get-command-invocation \
+            --instance-id "$EC2_INSTANCE_IDS" \
+            --command-id "$COMMAND_ID" \
+            --query 'StandardOutputContent' --output text)
+
+          STDERR=$(aws ssm get-command-invocation \
+            --instance-id "$EC2_INSTANCE_IDS" \
+            --command-id "$COMMAND_ID" \
+            --query 'StandardErrorContent' --output text)
+
+          echo "ResponseCode: $RESPONSE_CODE"
+          echo "STDOUT:"
+          echo "$STDOUT"
+          echo "STDERR:"
+          echo "$STDERR"
+
+          if [[ "$RESPONSE_CODE" -ne 0 ]]; then
+            echo "❌ Deployment failed with exit code $RESPONSE_CODE"
+            exit $RESPONSE_CODE
+          fi
+
+          echo "✅ Deployment completed successfully via SSM."
