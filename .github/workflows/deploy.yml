@@ -55,6 +55,9 @@ jobs:
           docker push "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:latest"
           docker push "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:${GITHUB_SHA}"
 
+      - name: Make monitor script executable
+        run: chmod +x scripts/monitor_ssm_command.sh
+
       - name: Deploy Backend via SSM
         run: |
           echo "🚀 Deploying backend service..."
