@@ -1,6 +1,6 @@
 # Database Configuration
 
-DB_URL=jdbc:mysql://15.207.98.173:3306/coffeespace?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+DB_URL=jdbc:mysql://15.207.98.173:9443/coffeespace?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
 
 DB_USERNAME=root
 DB_PASSWORD=rootDb
