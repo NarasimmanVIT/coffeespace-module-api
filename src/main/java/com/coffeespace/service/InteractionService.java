@@ -32,30 +32,39 @@ public class InteractionService {
             return;
         }
 
-        if (req.getMessage() == null || req.getMessage().isBlank()) {
-            throw new IllegalArgumentException("Message cannot be null or blank");
-        }
-
         Interaction interaction = new Interaction();
         interaction.setSourceProfileId(sourceProfileId);
         interaction.setTargetProfileId(req.getTargetProfileId());
         interaction.setType(req.getType());
-        interaction.setMessage(req.getMessage().trim());
+
+        // ✅ Message required only for LIKE
+        if (req.getType() == InteractionType.LIKE) {
+            if (req.getMessage() == null || req.getMessage().isBlank()) {
+                throw new IllegalArgumentException("Message is required for LIKE interaction");
+            }
+            interaction.setMessage(req.getMessage().trim());
+        } else {
+            interaction.setMessage(null); // DISLIKE doesn’t store a message
+        }
+
         interactionRepository.save(interaction);
 
+        // ✅ Auto-invite only for LIKE
         if (req.getType() == InteractionType.LIKE) {
             boolean alreadyInvited = inviteRepository
                     .findAll()
                     .stream()
                     .anyMatch(inv -> inv.getSenderId().equals(sourceProfileId)
                             && inv.getReceiverId().equals(req.getTargetProfileId()));
+
             if (!alreadyInvited) {
                 Invite invite = new Invite();
                 invite.setSenderId(sourceProfileId);
                 invite.setReceiverId(req.getTargetProfileId());
                 invite.setStatus(InviteStatus.PENDING);
-                invite.setMessage(req.getMessage());
+                invite.setMessage(req.getMessage().trim());
                 inviteRepository.save(invite);
+
                 log.info("Auto invite created from {} to {}", sourceProfileId, req.getTargetProfileId());
             }
         }

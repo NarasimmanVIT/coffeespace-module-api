@@ -15,8 +15,17 @@ public class ProfileViewResponse {
     private String contactNumber;
     private String email;
     private LocalDate dob;
+    private Integer age;
     private String city;
+    private String profilePicUrl;
 
-    private List<LinkedInExperienceDTO> experience;
-    private List<LinkedInEducationDTO> education;
+    private String goal;
+    private List<String> priorities;
+    private String experience;
+    private List<String> skills;
+    private List<String> industries;
+
+    private List<LinkedInExperienceDTO> experienceList;
+    private List<LinkedInEducationDTO> educationList;
+    private LinkedInResponse linkedIn;
 }

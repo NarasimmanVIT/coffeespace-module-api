@@ -4,6 +4,8 @@ import com.coffeespace.entity.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+
 import java.time.LocalDateTime;
 
 @Getter
@@ -19,6 +21,7 @@ public class Connection extends BaseEntity {
     @Column(name = "profile2_id", nullable = false)
     private Long profile2Id;
 
-    @Column(name = "connected_at", nullable = false)
-    private LocalDateTime connectedAt = LocalDateTime.now();
+    @CreationTimestamp
+    @Column(name = "connected_at", nullable = false, updatable = false)
+    private LocalDateTime connectedAt;
 }

@@ -19,54 +19,38 @@ public class InviteController {
     private final JwtUtil jwtUtil;
 
     @GetMapping("/received")
-    public ApiResponse<PaginatedResponse<ProfileSummaryResponse>> received(
+    public ApiResponse<PaginatedResponse<ProfileSummaryResponse>> getReceivedInvites(
             @RequestHeader("Authorization") String authHeader,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            throw new IllegalArgumentException("Missing or invalid Authorization header");
-        }
-
-        String token = authHeader.substring(7);
-        String profileId = jwtUtil.extractUserId(token);
-
-        log.info("Fetching received invites for profile ID: {}", profileId);
-
-        PaginatedResponse<ProfileSummaryResponse> invites =
+        String profileId = jwtUtil.extractUserId(authHeader.substring(7));
+        PaginatedResponse<ProfileSummaryResponse> response =
                 inviteService.getReceivedInvites(Long.parseLong(profileId), page, size);
 
         return ApiResponse.<PaginatedResponse<ProfileSummaryResponse>>builder()
                 .success(true)
                 .statusCode(200)
-                .message("Received invites retrieved successfully")
-                .data(invites)
+                .message("Received invites fetched successfully")
+                .data(response)
                 .build();
     }
 
     @GetMapping("/sent")
-    public ApiResponse<PaginatedResponse<ProfileSummaryResponse>> sent(
+    public ApiResponse<PaginatedResponse<ProfileSummaryResponse>> getSentInvites(
             @RequestHeader("Authorization") String authHeader,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            throw new IllegalArgumentException("Missing or invalid Authorization header");
-        }
-
-        String token = authHeader.substring(7);
-        String profileId = jwtUtil.extractUserId(token);
-
-        log.info("Fetching sent invites for profile ID: {}", profileId);
-
-        PaginatedResponse<ProfileSummaryResponse> invites =
+        String profileId = jwtUtil.extractUserId(authHeader.substring(7));
+        PaginatedResponse<ProfileSummaryResponse> response =
                 inviteService.getSentInvites(Long.parseLong(profileId), page, size);
 
         return ApiResponse.<PaginatedResponse<ProfileSummaryResponse>>builder()
                 .success(true)
                 .statusCode(200)
-                .message("Sent invites retrieved successfully")
-                .data(invites)
+                .message("Sent invites fetched successfully")
+                .data(response)
                 .build();
     }
 }

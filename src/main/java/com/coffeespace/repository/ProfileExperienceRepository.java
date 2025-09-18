@@ -2,21 +2,16 @@ package com.coffeespace.repository;
 
 import com.coffeespace.entity.ProfileExperience;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
-@Repository
 public interface ProfileExperienceRepository extends JpaRepository<ProfileExperience, Long> {
 
-    // Fetch all experience records for a given profileId
-    List<ProfileExperience> findByProfileid(Long profileId);
+    List<ProfileExperience> findByProfileid(Long profileid); // existing
 
-    // Delete all experience records for a given profileId
-    void deleteByProfileid(Long profileId);
+    void deleteByProfileid(Long profileid); // existing
 
-    // Check if experience records exist for a profile
-    boolean existsByProfileid(Long profileId);
-
-
+    // ✅ Get the latest experience by start date (descending)
+    Optional<ProfileExperience> findTop1ByProfileidOrderByStartdateDesc(Long profileid);
 }

@@ -1,11 +1,10 @@
 package com.coffeespace.converter;
 
-import com.coffeespace.dto.ProfileViewResponse;
-import com.coffeespace.dto.LinkedInEducationDTO;
-import com.coffeespace.dto.LinkedInExperienceDTO;
+import com.coffeespace.dto.*;
 import com.coffeespace.entity.Profile;
 import com.coffeespace.entity.ProfileEducation;
 import com.coffeespace.entity.ProfileExperience;
+import com.coffeespace.entity.ProfileAdditionalInfo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -16,12 +15,13 @@ import java.util.stream.Collectors;
 @Component
 public class ProfileViewConverter {
 
-    /**
-     * Convert a Profile entity + child entities to a ProfileViewResponse DTO.
-     */
     public ProfileViewResponse entityToDto(Profile profile,
+                                           ProfileAdditionalInfo addl,
+                                           List<String> skills,
+                                           List<String> industries,
                                            List<ProfileExperience> experiences,
                                            List<ProfileEducation> educationList) {
+
         log.debug("Converting Profile entity to ProfileViewResponse DTO for id: {}", profile.getId());
 
         return ProfileViewResponse.builder()
@@ -31,9 +31,18 @@ public class ProfileViewConverter {
                 .contactNumber(profile.getContactNumber())
                 .email(profile.getEmail())
                 .dob(profile.getDob())
+                .age(profile.getAge())
                 .city(profile.getCity())
-                .experience(experiencesToDto(experiences))
-                .education(educationToDto(educationList))
+                .profilePicUrl(profile.getProfilePicUrl())
+                .goal(addl != null ? addl.getGoal() : null)
+                .priorities(addl != null && addl.getPriorities() != null
+                        ? List.of(addl.getPriorities().split(",")) : List.of())
+                .experience(addl != null ? addl.getExperience() : null)
+                .skills(skills)
+                .industries(industries)
+                .experienceList(experiencesToDto(experiences))
+                .educationList(educationToDto(educationList))
+                .linkedIn(linkedInFromAddl(addl, experiencesToDto(experiences), educationToDto(educationList), skills))
                 .build();
     }
 
@@ -46,7 +55,7 @@ public class ProfileViewConverter {
                         .startDate(e.getStartdate())
                         .endDate(e.getEnddate())
                         .location(e.getLocation())
-                        .isCurrent(e.getEnddate() == null) // infer current role
+                        .isCurrent(Boolean.TRUE.equals(e.getIsCurrent()))
                         .build())
                 .collect(Collectors.toList());
     }
@@ -62,5 +71,21 @@ public class ProfileViewConverter {
                         .endYear(ed.getEnddate() != null ? Integer.valueOf(ed.getEnddate()) : null)
                         .build())
                 .collect(Collectors.toList());
+    }
+
+    private LinkedInResponse linkedInFromAddl(ProfileAdditionalInfo addl,
+                                              List<LinkedInExperienceDTO> exp,
+                                              List<LinkedInEducationDTO> edu,
+                                              List<String> skills) {
+        if (addl == null) return null;
+        return LinkedInResponse.builder()
+                .profileUrl(addl.getLinkedinProfileUrl())
+                .name(addl.getLinkedinName())
+                .summary(addl.getLinkedInSummary())
+                .connectionsCount(addl.getLinkedInConnectionsCount())
+                .experience(exp)
+                .education(edu)
+                .skills(skills)
+                .build();
     }
 }

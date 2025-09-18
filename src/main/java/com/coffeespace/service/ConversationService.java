@@ -10,13 +10,11 @@ import com.coffeespace.repository.MessageRepository;
 import com.coffeespace.repository.ProfileRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -26,51 +24,38 @@ public class ConversationService {
     private final ConnectionRepository connectionRepository;
     private final ProfileRepository profileRepository;
     private final MessageRepository messageRepository;
+    private final PresenceService presenceService;
 
-    /**
-     * Build conversations from connections (each connection = conversation).
-     * conversationId = "conv_" + connection.id
-     */
     public PaginatedConversationResponse getConversations(Long profileId, int page, int size) {
-        log.info("Fetching conversations for profileId={} page={} size={}", profileId, page, size);
+        var pageable = PageRequest.of(page, size);
+        var connections = connectionRepository.findByProfile1IdOrProfile2Id(profileId, profileId, pageable);
 
-        Page<Connection> connPage = connectionRepository.findByProfile1IdOrProfile2Id(profileId, profileId, PageRequest.of(page, size));
-
-        List<ConversationResponse> list = new ArrayList<>();
-
-        for (Connection conn : connPage.getContent()) {
+        List<ConversationResponse> responses = connections.stream().map(conn -> {
             Long otherId = conn.getProfile1Id().equals(profileId) ? conn.getProfile2Id() : conn.getProfile1Id();
-
-            Optional<Profile> otherOpt = profileRepository.findById(otherId);
+            Profile otherProfile = profileRepository.findById(otherId).orElse(null);
 
             String conversationId = "conv_" + conn.getId();
-
-            // fetch last message (descending, single)
-            Page<Message> lastPage = messageRepository.findByConversationIdOrderBySentAtDesc(conversationId, PageRequest.of(0, 1));
-            Message last = lastPage.hasContent() ? lastPage.getContent().get(0) : null;
-
+            Message lastMsg = messageRepository.findTop1ByConversationIdOrderBySentAtDesc(conversationId);
             long unreadCount = messageRepository.countByConversationIdAndReceiverIdAndIsReadFalse(conversationId, profileId);
 
-            ConversationResponse resp = ConversationResponse.builder()
+            return ConversationResponse.builder()
                     .conversationId(conversationId)
                     .participantId(otherId)
-                    .name(otherOpt.map(p -> p.getFirstname() + " " + p.getLastname()).orElse("Unknown User"))
-                    .avatar(otherOpt.map(Profile::getProfilePicUrl).orElse(null))
-                    .lastMessage(last != null ? last.getText() : "No messages yet")
-                    .lastMessageAt(last != null ? last.getSentAt() : conn.getConnectedAt())
+                    .name(otherProfile != null ? otherProfile.getFirstname() + " " + otherProfile.getLastname() : "Unknown")
+                    .avatar(otherProfile != null ? otherProfile.getProfilePicUrl() : null)
+                    .lastMessage(lastMsg != null ? lastMsg.getText() : null)
+                    .lastMessageAt(lastMsg != null ? lastMsg.getSentAt() : null)
                     .unreadCount((int) unreadCount)
-                    .isOnline(false)
+                    .isOnline(presenceService.isOnline(otherId))
                     .build();
-
-            list.add(resp);
-        }
+        }).collect(Collectors.toList());
 
         return PaginatedConversationResponse.builder()
-                .profiles(list)
                 .page(page)
                 .size(size)
-                .totalElements(connPage.getTotalElements())
-                .totalPages(connPage.getTotalPages())
+                .totalElements(connections.getTotalElements())
+                .totalPages(connections.getTotalPages())
+                .profiles(responses)
                 .build();
     }
 }

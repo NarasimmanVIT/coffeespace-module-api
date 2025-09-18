@@ -4,7 +4,6 @@ import com.coffeespace.entity.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-
 import java.time.LocalDateTime;
 
 @Getter
@@ -13,10 +12,6 @@ import java.time.LocalDateTime;
 @Table(name = "message")
 public class Message extends BaseEntity {
 
-    /**
-     * conversationId follows format: "conv_<connectionId>"
-     * we store it as string for flexibility (in future can be firebase id etc.)
-     */
     @Column(name = "conversation_id", nullable = false)
     private String conversationId;
 
