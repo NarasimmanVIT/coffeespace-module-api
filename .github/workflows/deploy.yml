@@ -1,0 +1,109 @@
+name: Deploy Backend to EC2
+
+on:
+  push:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ap-south-1
+  AWS_ACCOUNT_ID: 312471576153
+  IMAGE_NAME: coffeespace-backend
+  ECR_REPO: coffeespace-backend
+  EC2_INSTANCE_IDS: i-0dbc533f9c7a8cf30
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Validate AWS secrets
+        run: |
+          [ -n "${{ secrets.AWS_ACCESS_KEY_ID }}" ] && [ -n "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ] \
+            && echo "✅ AWS secrets are available." || { echo "❌ Missing AWS secrets"; exit 1; }
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Ensure ECR repo exists
+        run: |
+          aws ecr describe-repositories --repository-names "$ECR_REPO" >/dev/null 2>&1 \
+          || aws ecr create-repository --repository-name "$ECR_REPO" >/dev/null 2>&1
+
+      - name: Login to ECR
+        run: |
+          aws ecr get-login-password --region "$AWS_REGION" \
+          | docker login --username AWS --password-stdin "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+
+      - name: Build and push Docker image
+        run: |
+          # Build image
+          docker build -t "${IMAGE_NAME}:latest" .
+          
+          # Tag images
+          docker tag "${IMAGE_NAME}:latest" "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:latest"
+          docker tag "${IMAGE_NAME}:latest" "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:${GITHUB_SHA}"
+          
+          # Push images
+          docker push "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:latest"
+          docker push "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:${GITHUB_SHA}"
+
+      - name: Make monitor script executable
+        run: chmod +x scripts/monitor_ssm_command.sh
+
+      - name: Deploy Backend via SSM
+        run: |
+          echo "🚀 Deploying backend service..."
+          
+          COMMAND_ID=$(aws ssm send-command \
+            --targets "Key=instanceIds,Values=$EC2_INSTANCE_IDS" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy backend service" \
+            --parameters '{
+              "commands": [
+                "echo \"=== Backend Deployment Started ===\"",
+                "cd /home/ubuntu/app",
+                
+                "echo \"Logging in to ECR...\"",
+                "aws ecr get-login-password --region '"$AWS_REGION"' | docker login --username AWS --password-stdin '"$AWS_ACCOUNT_ID"'.dkr.ecr.'"$AWS_REGION"'.amazonaws.com",
+                
+                "echo \"Setting up environment variables...\"",
+                "export AWS_ACCOUNT_ID='"$AWS_ACCOUNT_ID"'",
+                "export AWS_REGION='"$AWS_REGION"'",
+                
+                "echo \"Pulling latest backend image...\"",
+                "docker pull '"$AWS_ACCOUNT_ID"'.dkr.ecr.'"$AWS_REGION"'.amazonaws.com/coffeespace-backend:latest",
+                
+                "echo \"Recreating backend container...\"",
+                "docker compose up -d backend --remove-orphans",
+                
+                "echo \"Waiting for backend to be healthy...\"",
+                "sleep 10",
+                
+                "echo \"Verifying backend deployment...\"",
+                "docker ps | grep coffeespace-backend",
+                "docker logs coffeespace-backend --tail 20",
+                
+                "echo \"=== Backend Deployment Completed ===\""
+              ]
+            }' \
+            --region "${AWS_REGION}" \
+            --query "Command.CommandId" \
+            --output text)
+
+          echo "SSM Command ID: $COMMAND_ID"
+          
+          # Monitor command execution
+          ./scripts/monitor_ssm_command.sh "$COMMAND_ID" "$EC2_INSTANCE_IDS" "$AWS_REGION"
+
+      - name: Verify deployment
+        run: |
+          echo "✅ Backend deployment completed successfully!"
+          echo "Backend image: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:${GITHUB_SHA}"
