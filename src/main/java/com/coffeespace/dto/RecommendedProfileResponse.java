@@ -8,6 +8,7 @@ import java.util.List;
 @Data
 @Builder
 public class RecommendedProfileResponse {
+
     private Long profileId;
     private String firstName;
     private String lastName;
@@ -18,5 +19,6 @@ public class RecommendedProfileResponse {
     private String experience;
     private List<String> skills;
     private List<String> industries;
+    private String role;
     private Double score;
 }

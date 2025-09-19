@@ -1,11 +1,10 @@
 package com.coffeespace.dto;
 
 import lombok.Builder;
-import lombok.Getter;
-
+import lombok.Data;
 import java.util.List;
 
-@Getter
+@Data
 @Builder
 public class PaginatedConversationResponse {
     private int page;

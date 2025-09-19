@@ -65,15 +65,15 @@ public class ProfileRecommendationService {
                         .lastName((String) r[2])
                         .email((String) r[3])
                         .city((String) r[4])
-                        .age(r[5] != null ? ((Number) r[5]).intValue() : null)  // <-- added
+                        .age(r[5] != null ? ((Number) r[5]).intValue() : null)
                         .goal((String) r[6])
                         .experience((String) r[7])
-                        .skills(Arrays.asList(((String) r[8]).split(",")))
-                        .industries(Arrays.asList(((String) r[9]).split(",")))
-                        .score(((Number) r[10]).doubleValue())
+                        .skills(r[8] != null ? Arrays.asList(((String) r[8]).split(",")) : List.of())
+                        .industries(r[9] != null ? Arrays.asList(((String) r[9]).split(",")) : List.of())
+                        .role((String) r[10])  // ✅ added role mapping
+                        .score(((Number) r[11]).doubleValue())
                         .build())
                 .toList();
-
 
         long total = recommendationRepository.countOtherProfiles(currentProfileId);
         int totalPages = (int) Math.ceil((double) total / size);

@@ -2,7 +2,6 @@ package com.coffeespace.dto;
 
 import lombok.Builder;
 import lombok.Data;
-
 import java.time.LocalDateTime;
 
 @Data

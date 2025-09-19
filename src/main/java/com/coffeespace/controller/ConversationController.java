@@ -23,21 +23,16 @@ public class ConversationController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            throw new IllegalArgumentException("Missing or invalid Authorization header");
-        }
-
         String token = authHeader.substring(7);
-        Long profileId = Long.parseLong(jwtUtil.extractUserId(token));
-        log.info("GET /api/conversations for profileId={}", profileId);
+        String profileId = jwtUtil.extractUserId(token);
 
-        PaginatedConversationResponse data = conversationService.getConversations(profileId, page, size);
+        PaginatedConversationResponse response = conversationService.getConversations(Long.valueOf(profileId), page, size);
 
         return ApiResponse.<PaginatedConversationResponse>builder()
-                .success(true)
-                .statusCode(200)
                 .message("Conversations fetched successfully")
-                .data(data)
+                .statusCode(200)
+                .success(true)
+                .data(response)
                 .build();
     }
 }

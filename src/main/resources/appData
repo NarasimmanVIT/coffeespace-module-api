@@ -1,6 +1,7 @@
+
 # Database Configuration
 
-DB_URL=jdbc:mysql://15.207.98.173:9443/coffeespace?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+DB_URL=jdbc:mysql:https://15.207.98.173:9443/api/coffeespace?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
 
 DB_USERNAME=root
 DB_PASSWORD=rootDb
@@ -9,6 +10,7 @@ DB_PASSWORD=rootDb
 #spring.datasource.username=myuser
 #spring.datasource.password=mypassword
 #spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+
 
 
 # JWT Configuration

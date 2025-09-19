@@ -1,9 +1,6 @@
 package com.coffeespace.controller;
 
-import com.coffeespace.dto.ApiResponse;
-import com.coffeespace.dto.MessageRequest;
-import com.coffeespace.dto.MessageResponse;
-import com.coffeespace.dto.PaginatedMessageResponse;
+import com.coffeespace.dto.*;
 import com.coffeespace.service.MessageService;
 import com.coffeespace.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
@@ -12,63 +9,48 @@ import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @RestController
+@RequestMapping("/api/messages")
 @RequiredArgsConstructor
 public class MessageController {
 
     private final MessageService messageService;
     private final JwtUtil jwtUtil;
 
-    /**
-     * API #13 — Fetch messages (paginated) for conversation and mark unread as read.
-     * GET /api/conversations/{conversationId}/messages?page=0&size=10
-     */
-    @GetMapping("/api/conversations/{conversationId}/messages")
+    @GetMapping("/{conversationId}")
     public ApiResponse<PaginatedMessageResponse> getMessages(
             @RequestHeader("Authorization") String authHeader,
             @PathVariable String conversationId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            throw new IllegalArgumentException("Missing or invalid Authorization header");
-        }
+        String token = authHeader.substring(7);
+        jwtUtil.extractUserId(token);
 
-        Long profileId = Long.parseLong(jwtUtil.extractUserId(authHeader.substring(7)));
-        log.info("GET messages for conversation={} requester={}", conversationId, profileId);
-
-        PaginatedMessageResponse resp = messageService.getMessages(profileId, conversationId, page, size);
+        PaginatedMessageResponse response = messageService.getMessages(conversationId, page, size);
 
         return ApiResponse.<PaginatedMessageResponse>builder()
                 .success(true)
                 .statusCode(200)
                 .message("Messages fetched successfully")
-                .data(resp)
+                .data(messageService.getMessages(conversationId, page, size)) // ✅ now matches
                 .build();
     }
 
-    /**
-     * API #15 — Send message
-     * POST /api/messages
-     */
-    @PostMapping("/api/messages")
+    @PostMapping
     public ApiResponse<MessageResponse> sendMessage(
             @RequestHeader("Authorization") String authHeader,
             @RequestBody MessageRequest req) {
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            throw new IllegalArgumentException("Missing or invalid Authorization header");
-        }
+        String token = authHeader.substring(7);
+        Long senderId = Long.valueOf(jwtUtil.extractUserId(token));
 
-        Long senderId = Long.parseLong(jwtUtil.extractUserId(authHeader.substring(7)));
-        log.info("POST send message from={} to={} conv={}", senderId, req.getReceiverId(), req.getConversationId());
-
-        MessageResponse created = messageService.sendMessage(senderId, req);
+        MessageResponse response = messageService.sendMessage(senderId, req);
 
         return ApiResponse.<MessageResponse>builder()
-                .success(true)
-                .statusCode(200)
                 .message("Message sent successfully")
-                .data(created)
+                .statusCode(200)
+                .success(true)
+                .data(response)
                 .build();
     }
 }

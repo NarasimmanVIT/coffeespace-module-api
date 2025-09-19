@@ -29,18 +29,16 @@ public class ConnectionController {
         }
 
         String token = authHeader.substring(7);
-        String profileId = jwtUtil.extractUserId(token);
+        String userId = jwtUtil.extractUserId(token);
 
-        log.info("Fetching connections for profile ID: {}", profileId);
-
-        PaginatedResponse<ProfileSummaryResponse> connections =
-                connectionService.getConnections(Long.parseLong(profileId), page, size);
+        PaginatedResponse<ProfileSummaryResponse> data =
+                connectionService.getConnections(Long.parseLong(userId), page, size);
 
         return ApiResponse.<PaginatedResponse<ProfileSummaryResponse>>builder()
                 .success(true)
                 .statusCode(200)
-                .message("Connections retrieved successfully")
-                .data(connections)
+                .message("Connections fetched successfully")
+                .data(data)
                 .build();
     }
 }

@@ -18,7 +18,7 @@ public class RecommendationController {
     private final JwtUtil jwtUtil;
 
     @GetMapping
-    public ApiResponse<RecommendationsPageResponse> recommend(
+    public ApiResponse<RecommendationsPageResponse> getRecommendations(
             @RequestHeader("Authorization") String authHeader,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
@@ -26,18 +26,17 @@ public class RecommendationController {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             throw new IllegalArgumentException("Missing or invalid Authorization header");
         }
-        String token = authHeader.substring(7);
-        // Your JwtUtil should carry the profileId in the "sub" or a custom claim
-        String profileIdStr = jwtUtil.extractUserId(token);
-        Long profileId = Long.parseLong(profileIdStr);
 
-        RecommendationsPageResponse data = recommendationService.recommendProfiles(profileId, page, size);
+        String token = authHeader.substring(7);
+        Long profileId = Long.parseLong(jwtUtil.extractUserId(token));
+
+        RecommendationsPageResponse response = recommendationService.recommendProfiles(profileId, page, size);
 
         return ApiResponse.<RecommendationsPageResponse>builder()
                 .success(true)
                 .statusCode(200)
                 .message("Recommendations fetched")
-                .data(data)
+                .data(response)
                 .build();
     }
 }
