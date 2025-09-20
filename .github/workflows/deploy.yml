@@ -10,7 +10,7 @@ env:
   AWS_ACCOUNT_ID: 312471576153
   IMAGE_NAME: coffeespace-backend
   ECR_REPO: coffeespace-backend
-  EC2_INSTANCE_IDS: i-0dbc533f9c7a8cf30
+  EC2_INSTANCE_IDS: i-0caf90c47e3b54226
 
 jobs:
   deploy:
